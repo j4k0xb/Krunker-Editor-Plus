@@ -2,6 +2,8 @@
 // @name         Krunker Editor+
 // @version      0.1
 // @description  Custom shortcuts. rounding pos/rot/size to 0.001, Javascript interface
+// @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
+// @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @author       Jakob#8686
 // @include      /^(https?:\/\/)?(www\.)?(.+)krunker\.io\/editor\.html/
 // @run-at       document-start
