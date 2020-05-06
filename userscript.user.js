@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.2
+// @version      0.3
 // @description  Custom shortcuts. rounding pos/rot/size to 0.001, Javascript interface
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -123,7 +123,7 @@ console.log("Patching script...");
 const observer = new MutationObserver(mutations => {
     mutations.forEach(({ addedNodes }) => {
         addedNodes.forEach(node => {
-            if(node.nodeType === 1 && node.tagName === 'SCRIPT' && (node.textContent.includes("Yendis") || node.type == "text/javascript")) {
+            if(node.nodeType === 1 && node.tagName === 'SCRIPT' && !node.src && (node.textContent.includes("Yendis") || node.type == "text/javascript")) {
                 observer.disconnect();
                 node.type = 'javascript/blocked';
                 const beforeScriptExecuteListener = e => {
