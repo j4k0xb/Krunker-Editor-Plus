@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.5
-// @description  Custom shortcuts. rounding pos/rot/size to 0.001, Javascript interface
+// @version      0.6
+// @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @author       Jakob#8686
 // @include      /^(https?:\/\/)?(www\.)?(.+)krunker\.io\/editor\.html/
 // @run-at       document-start
-/* globals $, dat */
+/* globals $, dat, T3D */
 // ==/UserScript==
 
 function GM_addStyle(css) {
@@ -42,9 +42,10 @@ class Mod {
         this.defaultSettings = null;
         this.settings = {
             showRealHB: false,
+            selectBehindInvis: true,
         };
         this.mainMenu = null;
-        this.visualMenu = null;
+        this.settingsMenu = null;
         this.gui = null;
         this.hitboxes = [];
         this.hbMat = null;
@@ -74,12 +75,14 @@ class Mod {
     addGui() {
         this.gui = new dat.GUI;
         this.gui.domElement.id = 'gui';
+        this.gui.width = 300;
 
         this.mainMenu = this.gui.addFolder("Editor+ v" + this.version);
         this.mainMenu.open();
 
-        this.visualMenu = this.mainMenu.addFolder("Visual");
-        this.visualMenu.add(this.settings, "showRealHB").name("Show Real Hitbox").onChange(t => {this.setSettings('showRealHB', t)});
+        this.settingsMenu = this.mainMenu.addFolder("Settings");
+        this.settingsMenu.add(this.settings, "showRealHB").name("Show Real Hitbox").onChange(t => {this.setSettings('showRealHB', t)});
+        this.settingsMenu.add(this.settings, "selectBehindInvis").name("Ignore Invis Obj [ALT]").onChange(t => {this.setSettings('selectBehindInvis', t)});
     }
 
     setupSettings() {
@@ -174,6 +177,25 @@ class Mod {
 
         this.setupSettings();
         this.addGui();
+        this.addMeshClickHandler();
+    }
+
+    addMeshClickHandler() {
+        T3D.container.addEventListener("mousedown", e => {
+            if (T3D.enabled && this.settings.selectBehindInvis && e.altKey) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                T3D.quickGUI._hidden || T3D.quickGUI.hide();
+                let n = T3D.settings.quickGUI && event.which == T3D.settings.quickGUIOpen + 2 && event.button == T3D.settings.quickGUIOpen + 1;
+                if (n || 1 === event.which || 0 === event.button)
+                    if (T3D.updateMouse(T3D.container, event.clientX, event.clientY), T3D.raycaster.setFromCamera(T3D.mouse, T3D.camera), 0 < (e = T3D.raycaster.intersectObjects(T3D.boundingMeshes.filter(x => x.userData.owner.visible), !0)).length)
+                        if (T3D.faceSelection && e[0].object.userData.owner.prefab.editFaces) {
+                            var t = Math.floor(e[0].faceIndex / 2);
+                            e[0].object.userData.owner.faces[t] = !e[0].object.userData.owner.faces[t], e[0].object.userData.owner.regen()
+                        } else n ? T3D.updateQuickGUI(e[0].point.clone(), e[0].object) : event.shiftKey && T3D.advancedOptions.objectPainter && 0 < T3D.advancedOptions.objectPainterJson.length ? T3D.replaceObject(T3D.fakeSelected(e[0].point.x, e[0].point.y + .5, e[0].point.z), T3D.advancedOptions.objectPainterJson, !0, !0, T3D.settings.assetAutoGroup) : T3D.attachTransform(e[0].object);
+                    else T3D.hideTransform()
+            }
+        });
     }
 
     showToast(msg, duration=3000) {
@@ -195,7 +217,7 @@ class Mod {
                 if (!e.ctrlKey && fn) {
                     fn();
                     e.preventDefault();
-                    event.stopImmediatePropagation();
+                    e.stopImmediatePropagation();
                     return false;
                 }
             }
@@ -253,8 +275,6 @@ function patchScript(code) {
         .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
         .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
         .replace(/(Editor\.prototype\.removeObject\=.*?)(let)/, '$1window.mod.onObjectRemoved(e);$2')
-    //         .replace(/(rotY\:o\.boundingMesh\.rotation\.y)/, 'rotX:o.boundingMesh.rotation.x,$1,rotZ:o.boundingMesh.rotation.z')
-    //     .replace(/(let p=this\.o)/, 'debugger;$1')
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
