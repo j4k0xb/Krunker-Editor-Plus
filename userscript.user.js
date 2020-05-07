@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.4
+// @version      0.5
 // @description  Custom shortcuts. rounding pos/rot/size to 0.001, Javascript interface
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -47,6 +47,7 @@ class Mod {
         this.visualMenu = null;
         this.gui = null;
         this.hitboxes = [];
+        this.hbMat = null;
 
         document.body.innerHTML += '<div class="toast" style="display:none"></div>'
 
@@ -55,7 +56,7 @@ class Mod {
                           'r': _=> this.createNearObject(29),
                           't': _=> this.createNearObject(27),
                           // shift:
-                          'B': _=> this.toggleProp("ambient"),
+                          'B': _=> this.hooks.editor.toggleProp("ambient"),
                          };
         this.addShortcuts();
 
@@ -120,20 +121,21 @@ class Mod {
     }
 
     hasRotation(e) {
-     e = e || this.hooks.editor.objectSelected()
-        const rot = e.rotation;
-        return Math.round(rot.x*1e6) != 0 || Math.round(rot.y*1e6) != 0 || Math.round(rot.z*1e6) != 0;
+        if (e = e || this.hooks.editor.objectSelected()) {
+            const rot = e.rotation;
+            return Math.round(rot.x*1e6) != 0 || Math.round(rot.y*1e6) != 0 || Math.round(rot.z*1e6) != 0;
+        }
     }
 
     loop() {
         if (!this.hooks.editor.enabled) return;
 
         this.hooks.editor.objInsts.forEach(e => {
-           const rot = e.rotation;
-           const showHB = this.hasRotation(e) && e.collidable && this.settings.showRealHB && !["PLACEHOLDER", "SIGN"].includes(e.objType);
+            const rot = e.rotation;
+            const showHB = (this.hasRotation(e) || e.objType == "LADDER") && e.collidable && this.settings.showRealHB && !["PLACEHOLDER", "SIGN"].includes(e.objType);
 
-           if (Object.keys(this.hitboxes).includes(e.boundingMesh.uuid)) {
-               const hb = this.hitboxes[e.boundingMesh.uuid];
+            if (Object.keys(this.hitboxes).includes(e.boundingMesh.uuid)) {
+                const hb = this.hitboxes[e.boundingMesh.uuid];
 
                 if (!showHB) {
                     this.hooks.editor.scene.remove(hb.owner);
@@ -145,27 +147,30 @@ class Mod {
                     hb.owner.position.x = e.boundingMesh.position.x;
                     hb.owner.position.y = e.boundingMesh.position.y + hb.owner.scale.y/2;
                     hb.owner.position.z = e.boundingMesh.position.z;
-                }
-           } else if (showHB) {
-               const geometry = new this.hooks.three.BoxGeometry(e.scale.x, e.scale.y, e.scale.z);
-               const material = new this.hooks.three.MeshPhongMaterial({ color: 0x02d10c, opacity: 0.2, transparent: true});
-               const cube = new this.hooks.three.Mesh(geometry, material);
-               this.hooks.editor.scene.add(cube);
 
-               this.hitboxes[e.boundingMesh.uuid] = {"owner": cube};
-           }
+                    if (e.objType == "LADDER") {
+                        hb.owner.position.y -= hb.owner.scale.y/2;
+                        hb.owner.scale.y *= 2;
+                    }
+                }
+            } else if (showHB) {
+                const geometry = new this.hooks.three.BoxGeometry(e.scale.x, e.scale.y, e.scale.z);
+                const cube = new this.hooks.three.Mesh(geometry, this.hbMat);
+                this.hooks.editor.scene.add(cube);
+
+                this.hitboxes[e.boundingMesh.uuid] = {"owner": cube};
+            }
         });
     }
 
     onEditorInit() {
         const editor = this.hooks.editor;
+        this.hbMat = new this.hooks.three.MeshPhongMaterial({ color: 0x02d10c, opacity: 0.2, transparent: true});
 
         const helpHTML = window.windows.filter(w=>w.header=="Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>shift b</b> = toggle shading</p></div>";
         window.windows.filter(w=>w.header=="Help")[0].gen = function() {
             return helpHTML;
         }
-
-        this.hooks.editor.toggleProp = this.toggleProp;
 
         this.setupSettings();
         this.addGui();
@@ -173,15 +178,6 @@ class Mod {
 
     showToast(msg, duration=3000) {
         $('.toast').stop().text(msg).fadeIn(400).delay(duration).fadeOut(400)
-    }
-
-    toggleProp(propName, obj = null) {
-        const editor = window.mod.hooks.editor;
-        obj = obj || editor.objectSelected();
-        if (obj) {
-            obj.userData.owner[propName] = !obj.userData.owner[propName]; // update obj property
-            editor.objConfig[propName] = obj.userData.owner[propName]; // update gui
-        }
     }
 
     createNearObject(id) {
@@ -247,7 +243,7 @@ observer.observe(document.documentElement, {
 
 function patchScript(code) {
 
-    code = code.replace(/((\w+).boundingNoncollidableBoxMaterial=new .*}\);)/, '$1 window.mod.hooks.objectInstance = $2;')
+    code = code.replace(/((\w+)\.getLineMaterial=)/, 'window.mod.hooks.objectInstance=$2;$1')
         .replace(/this\.transformControl\.update\(\)/, 'this.transformControl.update(),window.mod.hooks.editor = this,window.mod.loop()')
         .replace(/\[\],(\w+\.?\w+?).open\(\),/, '[],$1.open(),window.mod.hooks.gui=$1,')
         .replace(/(initScene=function\(\){)/, '$1window.mod.hooks.three = THREE,')
@@ -256,7 +252,9 @@ function patchScript(code) {
         .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
         .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
-        .replace(/(Editor\.prototype\.removeObject\=.*?)(let)/, '$1window.mod.onObjectRemoved(e);$2');
+        .replace(/(Editor\.prototype\.removeObject\=.*?)(let)/, '$1window.mod.onObjectRemoved(e);$2')
+    //         .replace(/(rotY\:o\.boundingMesh\.rotation\.y)/, 'rotX:o.boundingMesh.rotation.x,$1,rotZ:o.boundingMesh.rotation.z')
+    //     .replace(/(let p=this\.o)/, 'debugger;$1')
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
