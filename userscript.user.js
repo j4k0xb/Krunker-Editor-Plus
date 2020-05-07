@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.6
+// @version      0.7
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @author       Jakob#8686
 // @include      /^(https?:\/\/)?(www\.)?(.+)krunker\.io\/editor\.html/
 // @run-at       document-start
-/* globals $, dat, T3D */
+/* globals $, dat */
 // ==/UserScript==
 
 function GM_addStyle(css) {
-    const style = document.getElementById("GM_addStyleBy8626") || (function() {
+    const style = document.getElementById("GM_addStyleBy8626") || (function () {
         const style = document.createElement('style');
         style.type = 'text/css';
         style.id = "GM_addStyleBy8626";
@@ -47,22 +47,21 @@ class Mod {
         this.mainMenu = null;
         this.settingsMenu = null;
         this.gui = null;
-        this.hitboxes = [];
-        this.hbMat = null;
 
         document.body.innerHTML += '<div class="toast" style="display:none"></div>'
 
-        this.shortcuts = {'c': _=> this.createNearObject(0),
-                          'g': _=> this.createNearObject(24),
-                          'r': _=> this.createNearObject(29),
-                          't': _=> this.createNearObject(27),
-                          // shift:
-                          'B': _=> this.hooks.editor.toggleProp("ambient"),
-                         };
+        this.shortcuts = {
+            'c': _ => this.createNearObject(0),
+            'g': _ => this.createNearObject(24),
+            'r': _ => this.createNearObject(29),
+            't': _ => this.createNearObject(27),
+            // shift:
+            'B': _ => window.T3D.toggleProp("ambient"),
+        };
         this.addShortcuts();
 
-        const timer = setInterval(_=> {
-            if (this.hooks.editor) {
+        const timer = setInterval(_ => {
+            if (window.T3D) {
                 this.onEditorInit();
                 clearInterval(timer);
             }
@@ -81,8 +80,7 @@ class Mod {
         this.mainMenu.open();
 
         this.settingsMenu = this.mainMenu.addFolder("Settings");
-        this.settingsMenu.add(this.settings, "showRealHB").name("Show Real Hitbox").onChange(t => {this.setSettings('showRealHB', t)});
-        this.settingsMenu.add(this.settings, "selectBehindInvis").name("Ignore Invis Obj [ALT]").onChange(t => {this.setSettings('selectBehindInvis', t)});
+        this.settingsMenu.add(this.settings, "selectBehindInvis").name("Ignore Invis Obj [ALT]").onChange(t => { this.setSettings('selectBehindInvis', t) });
     }
 
     setupSettings() {
@@ -115,104 +113,44 @@ class Mod {
         r && localStorage.setItem(t, e);
     }
 
-    onObjectRemoved(e) {
-        if (Object.keys(this.hitboxes).includes(e.uuid)) {
-            const hb = this.hitboxes[e.uuid];
-            this.hooks.editor.scene.remove(hb.owner);
-            delete this.hitboxes[e.uuid];
-        }
-    }
-
-    hasRotation(e) {
-        if (e = e || this.hooks.editor.objectSelected()) {
-            const rot = e.rotation;
-            return Math.round(rot.x*1e6) != 0 || Math.round(rot.y*1e6) != 0 || Math.round(rot.z*1e6) != 0;
-        }
+    hasRotation(rot) {
+        return Array.isArray(rot) && rot.reduce((r,sum) => sum+Math.round(Math.abs(r)*1e6)) != 0;
     }
 
     loop() {
-        if (!this.hooks.editor.enabled) return;
-
-        this.hooks.editor.objInsts.forEach(e => {
-            const rot = e.rotation;
-            const showHB = (this.hasRotation(e) || e.objType == "LADDER") && e.collidable && this.settings.showRealHB && !["PLACEHOLDER", "SIGN"].includes(e.objType);
-
-            if (Object.keys(this.hitboxes).includes(e.boundingMesh.uuid)) {
-                const hb = this.hitboxes[e.boundingMesh.uuid];
-
-                if (!showHB) {
-                    this.hooks.editor.scene.remove(hb.owner);
-                    delete this.hitboxes[e.boundingMesh.uuid];
-                } else {
-                    hb.owner.scale.x = e.boundingMesh.scale.x;
-                    hb.owner.scale.y = e.boundingMesh.scale.y;
-                    hb.owner.scale.z = e.boundingMesh.scale.z;
-                    hb.owner.position.x = e.boundingMesh.position.x;
-                    hb.owner.position.y = e.boundingMesh.position.y + hb.owner.scale.y/2;
-                    hb.owner.position.z = e.boundingMesh.position.z;
-
-                    if (e.objType == "LADDER") {
-                        hb.owner.position.y -= hb.owner.scale.y/2;
-                        hb.owner.scale.y *= 2;
-                    }
-                }
-            } else if (showHB) {
-                const geometry = new this.hooks.three.BoxGeometry(e.scale.x, e.scale.y, e.scale.z);
-                const cube = new this.hooks.three.Mesh(geometry, this.hbMat);
-                this.hooks.editor.scene.add(cube);
-
-                this.hitboxes[e.boundingMesh.uuid] = {"owner": cube};
-            }
-        });
     }
 
     onEditorInit() {
-        const editor = this.hooks.editor;
-        this.hbMat = new this.hooks.three.MeshPhongMaterial({ color: 0x02d10c, opacity: 0.2, transparent: true});
-
-        const helpHTML = window.windows.filter(w=>w.header=="Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>shift b</b> = toggle shading</p></div>";
-        window.windows.filter(w=>w.header=="Help")[0].gen = function() {
+        const helpHTML = window.windows.filter(w => w.header == "Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>shift b</b> = toggle shading</p></div>";
+        window.windows.filter(w => w.header == "Help")[0].gen = function () {
             return helpHTML;
+        }
+
+        window.T3D.raycaster._intersectObjects = window.T3D.raycaster.intersectObjects;
+        window.T3D.raycaster.intersectObjects = (e, t, n) => {
+            if (event.altKey && window.mod.settings.selectBehindInvis) e = e.filter(x => x.userData.owner.visible);
+            return window.T3D.raycaster._intersectObjects(e, t, n);
         }
 
         this.setupSettings();
         this.addGui();
-        this.addMeshClickHandler();
     }
 
-    addMeshClickHandler() {
-        T3D.container.addEventListener("mousedown", e => {
-            if (T3D.enabled && this.settings.selectBehindInvis && e.altKey) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                T3D.quickGUI._hidden || T3D.quickGUI.hide();
-                let n = T3D.settings.quickGUI && event.which == T3D.settings.quickGUIOpen + 2 && event.button == T3D.settings.quickGUIOpen + 1;
-                if (n || 1 === event.which || 0 === event.button)
-                    if (T3D.updateMouse(T3D.container, event.clientX, event.clientY), T3D.raycaster.setFromCamera(T3D.mouse, T3D.camera), 0 < (e = T3D.raycaster.intersectObjects(T3D.boundingMeshes.filter(x => x.userData.owner.visible), !0)).length)
-                        if (T3D.faceSelection && e[0].object.userData.owner.prefab.editFaces) {
-                            var t = Math.floor(e[0].faceIndex / 2);
-                            e[0].object.userData.owner.faces[t] = !e[0].object.userData.owner.faces[t], e[0].object.userData.owner.regen()
-                        } else n ? T3D.updateQuickGUI(e[0].point.clone(), e[0].object) : event.shiftKey && T3D.advancedOptions.objectPainter && 0 < T3D.advancedOptions.objectPainterJson.length ? T3D.replaceObject(T3D.fakeSelected(e[0].point.x, e[0].point.y + .5, e[0].point.z), T3D.advancedOptions.objectPainterJson, !0, !0, T3D.settings.assetAutoGroup) : T3D.attachTransform(e[0].object);
-                    else T3D.hideTransform()
-            }
-        });
-    }
-
-    showToast(msg, duration=3000) {
+    showToast(msg, duration = 3000) {
         $('.toast').stop().text(msg).fadeIn(400).delay(duration).fadeOut(400)
     }
 
     createNearObject(id) {
-        let t = new this.hooks.three.Vector3(0,-5,-30);
-        t.applyQuaternion(this.hooks.editor.camera.getWorldQuaternion());
-        let n = this.hooks.editor.camera.getWorldPosition();
+        let t = new this.hooks.three.Vector3(0, -5, -30);
+        t.applyQuaternion(window.T3D.camera.getWorldQuaternion());
+        let n = window.T3D.camera.getWorldPosition();
         n.add(t.multiplyScalar(1));
-        this.hooks.editor.addObject(this.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]))
+        window.T3D.addObject(this.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]))
     }
 
     addShortcuts() {
         window.onkeydown = e => {
-            if (!this.hooks.editor.isTyping(e) && this.hooks.editor.enabled) {
+            if (!window.T3D.isTyping(e) && window.T3D.enabled) {
                 const fn = this.shortcuts[e.keyCode] || this.shortcuts[e.key];
                 if (!e.ctrlKey && fn) {
                     fn();
@@ -229,7 +167,7 @@ console.log("Patching script...");
 const observer = new MutationObserver(mutations => {
     mutations.forEach(({ addedNodes }) => {
         addedNodes.forEach(node => {
-            if(node.nodeType === 1 && node.tagName === 'SCRIPT' && !node.src && (node.textContent.includes("Yendis") || node.type == "text/javascript")) {
+            if (node.nodeType === 1 && node.tagName === 'SCRIPT' && !node.src && (node.textContent.includes("Yendis") || node.type == "text/javascript")) {
                 observer.disconnect();
                 node.type = 'javascript/blocked';
                 const beforeScriptExecuteListener = e => {
@@ -254,7 +192,7 @@ const observer = new MutationObserver(mutations => {
     })
 })
 
-setTimeout(_=> {
+setTimeout(_ => {
     if ((!unsafeWindow.code || !unsafeWindow.mod || !unsafeWindow.mod.hooks.editor) && confirm("Editor+ couldn't patch the script, please reload the page")) location.reload()
 }, 10000);
 
@@ -269,12 +207,14 @@ function patchScript(code) {
         .replace(/this\.transformControl\.update\(\)/, 'this.transformControl.update(),window.mod.hooks.editor = this,window.mod.loop()')
         .replace(/\[\],(\w+\.?\w+?).open\(\),/, '[],$1.open(),window.mod.hooks.gui=$1,')
         .replace(/(initScene=function\(\){)/, '$1window.mod.hooks.three = THREE,')
-        .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // disable rounding on serialization (generating json)
+        .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round to 0.001 on serialization (generating json)
         .replace('[n.x, n.y, n.z]', '[Math.round(n.x), Math.round(n.y), Math.round(n.z)]') // round position in createObjectNear
         .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
         .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
-        .replace(/(Editor\.prototype\.removeObject\=.*?)(let)/, '$1window.mod.onObjectRemoved(e);$2')
+        .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
+    .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
+    .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x02d10c') // replace colour
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
@@ -285,7 +225,7 @@ function patchScript(code) {
             if (confirm("Editor+ couldn't load jQuery, please reload the page")) location.reload();
             return;
         }
-        if (typeof unsafeWindow.jQuery == 'undefined') window.setTimeout(GM_wait,100);
+        if (typeof unsafeWindow.jQuery == 'undefined') window.setTimeout(GM_wait, 100);
         else {
             unsafeWindow.code = code
             window.eval(code);
@@ -298,6 +238,7 @@ function patchScript(code) {
             document.head.appendChild(clone);
 
             console.log("Done");
-        }}
+        }
+    }
     GM_wait();
 }
