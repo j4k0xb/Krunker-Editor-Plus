@@ -3,11 +3,11 @@
 # Krunker Editor+
 
 ## Features
-- Shows the real hitbox of rotated collidable objects
+- Shows the real hitbox of rotated collidable objects and ladders
+- ALT+click to select objects behind invisible ones
 - asset/placeholder/group rotation fix (y-axis now sort of works 0-360° in both directions)
-- Custom position/rotation/scale snapping with an accuracy up to 0.001
+- Custom position/rotation/scale snapping with an accuracy of up to 0.001
 - Custom hotkeys for creating and modifying objects (See the *Help* button in the editor)
-- _Copy map to clipboard_ button (normally shift+export)
 - JavaScript interface for interacting with the editor. Console: `mod` shows you all available hooks (editor, gui, ...), variables (e.g. custom shortcut list) and functions
 
 ## How to Install
