@@ -114,7 +114,7 @@ class Mod {
     }
 
     hasRotation(rot) {
-        return Array.isArray(rot) && rot.reduce((r,sum) => sum+Math.round(Math.abs(r)*1e6)) != 0;
+        return Array.isArray(rot) && rot.reduce((sum,r) => sum+Math.round(Math.abs(r)*1e6)) != 0;
     }
 
     loop() {
