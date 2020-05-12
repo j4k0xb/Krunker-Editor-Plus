@@ -2,7 +2,8 @@
 
 ## Features
 - Shows the real hitbox of rotated collidable objects and ladders
-- ALT+click to select objects behind invisible ones
+- ALT+click to select objects behind invisible ones or inside groups
+- Selected object's outline blinks
 - asset/placeholder/group rotation fix (y-axis now sort of works 0-360° in both directions)
 - Custom position/rotation/scale snapping with an accuracy of up to 0.001: *Advanced tab→Snapping*
 - Custom hotkeys for creating and modifying objects (See the *Help* button in the editor)
