@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.8
+// @version      0.9
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -41,7 +41,7 @@ class Mod {
         };
         this.defaultSettings = null;
         this.settings = {
-            blinkSelected: true,
+            blinkSelected: false,
             selectBehindInvis: true,
         };
         this.mainMenu = null;
@@ -215,7 +215,7 @@ function patchScript(code) {
         .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // replace colour
-        .replace(/(update\(\w+,(\w+)\)\{)/, '$1 let ob = T3D.transformControl.object; if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false;') // boxShape blink
+        .replace(/(update\(\w+,(\w+)\)\{)/, '$1 let ob = T3D.transformControl.object; if (this.boxShape){ if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false; }') // boxShape blink
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
