@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.9
+// @version      0.10
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -211,6 +211,7 @@ function patchScript(code) {
         .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round to 0.001 on serialization (generating json)
         .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
+        .replace(/\0?.1(\)\.name\("Texture Offset)/g, '0.01$1') // texture offset precision
         .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
         .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
