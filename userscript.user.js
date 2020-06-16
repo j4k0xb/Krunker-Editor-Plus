@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      0.10
+// @version      1.1
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -133,6 +133,29 @@ class Mod {
             return window.T3D.raycaster._intersectObjects(e, t, n);
         }
 
+        window.T3D._fixHitbox = window.T3D.fixHitbox;
+        window.T3D.fixHitbox = e => {
+            if (e = e || window.T3D.objectSelected()) {
+                let rx = Math.round(e.rotation.x*180/Math.PI);
+                let rz = Math.round(e.rotation.z*180/Math.PI);
+                let ry = Math.round(e.rotation.y*180/Math.PI);
+                if (Math.abs(rx) < 1e-10) rx = 0;
+                if (Math.abs(ry) < 1e-10) ry = 0;
+                if (Math.abs(rz) < 1e-10) rz = 0;
+
+                if (Math.abs(rx) == 180 && ry == 0 && Math.abs(rz) == 180) [rx, ry, rz] = [0, 180, 0];
+
+                if (rx == 0 && rz == 0 && Math.abs(ry) == 180) {
+                    [e.rotation.x, e.rotation.y, e.rotation.z] = [0, 0, 0];
+                } else if (rx == 0 && rz == 0 && Math.abs(ry) == 90) {
+                    [e.rotation.x, e.rotation.y, e.rotation.z] = [0, 0, 0];
+                    [e.scale.x, e.scale.z] = [e.scale.z, e.scale.x];
+                }
+            }
+
+            return window.T3D._fixHitbox(e);
+        }
+
         this.setupSettings();
         this.addGui();
     }
@@ -216,7 +239,7 @@ function patchScript(code) {
         .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // replace colour
-        .replace(/(update\(\w+,(\w+)\)\{)/, '$1 let ob = T3D.transformControl.object; if (this.boxShape){ if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false; }') // boxShape blink
+        .replace(/(update\(\w+,(\w+)\)\{)/, '$1 if (window.T3D) {let ob = window.T3D.transformControl.object; if (this.boxShape){ if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false; }}') // boxShape blink
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
