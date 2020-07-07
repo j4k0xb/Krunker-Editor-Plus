@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.1
+// @version      1.2
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -24,6 +24,7 @@ function GM_addStyle(css) {
 
 GM_addStyle('.toast{width:200px;height:20px;height:auto;position:absolute;left:50%;margin-left:-100px;bottom:50px;background-color:#383838;color:#f0f0f0;font-family:Calibri;font-size:20px;padding:10px;text-align:center;border-radius:5px;-webkit-box-shadow:0 0 24px -1px #383838;-moz-box-shadow:0 0 24px -1px #383838;box-shadow:0 0 24px -1px #383838}');
 GM_addStyle('#gui { position: absolute; top: 2px; left: 2px }');
+GM_addStyle('#objSearch { width: 180px; }');
 
 const GM_JQ = document.createElement('script');
 GM_JQ.src = 'https://code.jquery.com/jquery-3.5.0.min.js';
@@ -35,9 +36,9 @@ class Mod {
         this.version = version;
         this.hooks = {
             objectInstance: null,
-            editor: null,
             gui: null,
-            three: null
+            assets: null,
+            utils: null,
         };
         this.defaultSettings = null;
         this.settings = {
@@ -48,13 +49,15 @@ class Mod {
         this.settingsMenu = null;
         this.gui = null;
 
-        document.body.innerHTML += '<div class="toast" style="display:none"></div>'
+        document.body.innerHTML += '<div class="toast" style="display:none"></div>';
 
         this.shortcuts = {
             'c': _ => this.createNearObject(0),
             'g': _ => this.createNearObject(24),
             'r': _ => this.createNearObject(29),
             't': _ => this.createNearObject(27),
+            'f': _ => this.flipXZ(),
+            'n': _ => window.showWindow(10),
             // shift:
             'B': _ => window.T3D.toggleProp("ambient"),
         };
@@ -118,14 +121,50 @@ class Mod {
         return Array.isArray(rot) && rot.reduce((sum,r) => sum+Math.round(Math.abs(r)*1e6)) != 0;
     }
 
-    loop() {
-    }
+    // loop() {
+    // }
 
     onEditorInit() {
-        const helpHTML = window.windows.filter(w => w.header == "Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>shift b</b> = toggle shading</p></div>";
+        const helpHTML = window.windows.filter(w => w.header == "Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>n</b> = quick search</p><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>f</b> = flip x/z size</p><p><b>shift b</b> = toggle shading</p></div>";
         window.windows.filter(w => w.header == "Help")[0].gen = function () {
             return helpHTML;
         }
+
+        window.windows[9] = {
+            header: "Search",
+            searchObjects: function() {
+                const search = document.getElementById("objSearch").value.toUpperCase();
+                const result = search.trim().length ? window.mod.hooks.assets.prefabs
+                .filter(p => p.name.indexOf(search) != -1)
+                .sort((a,b) => a.name.length - b.name.length)
+                : [];
+
+                if (window.event.keyCode == 13 && result.length) {
+                    window.closeWindow();
+                    window.mod.createNearObject(result[0].id);
+                    return;
+                }
+
+                let html = "";
+
+                if (result.length) {
+                    html = "<div style='height:10px'></div>";
+                    result.forEach(p => {
+                        html += "<a style='display: block' href='javascript:window.closeWindow(),window.mod.createNearObject(" + p.id + ")'>" + window.mod.hooks.utils.formatConstName(p.name) + "</a>";
+                    });
+                } else if (search.trim().length) {
+                    html = "No Objects found";
+                }
+                document.getElementById("objectSearchResult").innerHTML = html;
+            },
+            gen: function() {
+                return "</div><div style='color:rgba(0,0,0,0.3)' id='objectList'>"
+                    + "<input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[9].searchObjects()' />"
+                    + "<div class='searchBtn' onclick='windows[1].searchObjects()'>Search</div><div style='color:rgba(0,0,0,0.5);margin-top:10px' id='objectSearchResult'></div></div>";
+            }
+        }
+
+        window.T3D.radToDeg = arr => (window.T3D.settings.degToRad ? arr.map(r => r * 180 / Math.PI) : arr).map(r => Math.abs(r) < 1e-10 ? 0 : r);
 
         window.T3D.raycaster._intersectObjects = window.T3D.raycaster.intersectObjects;
         window.T3D.raycaster.intersectObjects = (e, t, n) => {
@@ -161,15 +200,24 @@ class Mod {
     }
 
     showToast(msg, duration = 3000) {
-        $('.toast').stop().text(msg).fadeIn(400).delay(duration).fadeOut(400)
+        $('.toast').stop().text(msg).fadeIn(400).delay(duration).fadeOut(400);
+    }
+
+    flipXZ(e = null) {
+        if (e = e || window.T3D.objectSelected()) {
+            [e.scale.x, e.scale.z] = [e.scale.z, e.scale.x];
+            window.T3D.updateObjConfigGUI();
+        }
     }
 
     createNearObject(id) {
-        let t = new this.hooks.three.Vector3(0, -5, -30);
+        if (window.mod.hooks.assets.prefabs[id].name == "CUSTOM_ASSET") return window.T3D.viewAssets();
+
+        let t = new window.T3D.THREE.Vector3(0, -5, -30);
         t.applyQuaternion(window.T3D.camera.getWorldQuaternion());
         let n = window.T3D.camera.getWorldPosition();
         n.add(t.multiplyScalar(1));
-        window.T3D.addObject(this.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]))
+        window.T3D.addObject(window.mod.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]));
     }
 
     addShortcuts() {
@@ -212,12 +260,12 @@ const observer = new MutationObserver(mutations => {
                 }
                 return;
             }
-        })
-    })
-})
+        });
+    });
+});
 
 setTimeout(_ => {
-    if ((!unsafeWindow.code || !unsafeWindow.mod || !unsafeWindow.mod.hooks.editor) && confirm("Editor+ couldn't patch the script, please reload the page")) location.reload()
+    if ((!unsafeWindow.code || !unsafeWindow.mod || !unsafeWindow.mod.hooks.assets) && confirm("Editor+ couldn't patch the script, please reload the page")) location.reload();
 }, 10000);
 
 observer.observe(document.documentElement, {
@@ -228,18 +276,26 @@ observer.observe(document.documentElement, {
 function patchScript(code) {
 
     code = code.replace(/((\w+)\.getLineMaterial=)/, 'window.mod.hooks.objectInstance=$2;$1')
-        .replace(/this\.transformControl\.update\(\)/, 'this.transformControl.update(),window.mod.hooks.editor = this,window.mod.loop()')
+        .replace(/(const initScene)/, 'window.mod.hooks.assets=ASSETS;window.mod.hooks.utils=UTILS;$1')
+        // .replace(/this\.transformControl\.update\(\)/, 'this.transformControl.update(),window.mod.loop()')
         .replace(/\[\],(\w+\.?\w+?).open\(\),/, '[],$1.open(),window.mod.hooks.gui=$1,')
-        .replace(/(initScene=function\(\){)/, '$1window.mod.hooks.three = THREE,')
         .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round to 0.001 on serialization (generating json)
+        .replace(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
         .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
         .replace(/\0?.1(\)\.name\("Texture Offset)/g, '0.01$1') // texture offset precision
+        .replace(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
         .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
         .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // replace colour
         .replace(/(update\(\w+,(\w+)\)\{)/, '$1 if (window.T3D) {let ob = window.T3D.transformControl.object; if (this.boxShape){ if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false; }}') // boxShape blink
+        .replace('"channel",0,100,1)', '"channel",0,1000,1)') // more teleporter channels
+        .replace(',r.open()', ',this.wasOpen["Style"] && this.settings.preserveFolderState && r.open()') // remember style open/closed
+        .replace(/(T3D\.toggleWindow\(!0\)\))/, '$1\ndocument.getElementById("menuWindow").style.width = e == 10 ? "300px" : ""') // custom search window width
+        .replace(/(arrayAttribute=function.*?{)/, '$1n = t == "rot" ? this.radToDeg(n) : n;') // display rotation deg
+        .replace(/(\w\.)rotateOnAxis(\(\w,\w\))/, '$1rotateOnWorldAxis$2') // always rotate group children on world axis
+        .replace(/(,\w\.owner\.rotation)\)/, '$1.clone().reorder("YXZ"))') // fix group y rotation
 
     code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
 
@@ -252,7 +308,7 @@ function patchScript(code) {
         }
         if (typeof unsafeWindow.jQuery == 'undefined') window.setTimeout(GM_wait, 100);
         else {
-            unsafeWindow.code = code
+            unsafeWindow.code = code;
             window.eval(code);
 
             document.title += "+";
