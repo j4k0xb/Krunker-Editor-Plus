@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.3
+// @version      1.3.1
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -43,19 +43,6 @@ class Mod {
 
 
     setupSettings() {
-        this.defaultSettings = JSON.parse(JSON.stringify(this.settings));
-        let ls = this.getSavedVal('editor+');
-        if (ls == null) return;
-        try {
-            JSON.parse(ls);
-        } catch (e) {
-            return;
-        }
-        let jsp = JSON.parse(ls);
-        for (let set in jsp) {
-            this.settings[set] = jsp[set];
-        }
-
         windows[2].tabNames.push("Editor+");
         GUI.window.settings["editor+"] = {
             gen: () => {
@@ -72,6 +59,19 @@ class Mod {
                 };
                 return GUI.build(["window", "settings", "editor+", "blueprint"])
             }
+        }
+
+        this.defaultSettings = JSON.parse(JSON.stringify(this.settings));
+        let ls = this.getSavedVal('editor+');
+        if (ls == null) return;
+        try {
+            JSON.parse(ls);
+        } catch (e) {
+            return;
+        }
+        let jsp = JSON.parse(ls);
+        for (let set in jsp) {
+            this.settings[set] = jsp[set];
         }
     }
 
@@ -189,12 +189,12 @@ class Mod {
     patchQuickAdd() {
         windows[3].gen = function() {
             return `<div class="windowHeader">
-    <div>Quick Add</div>
-    <div id='objSearchBtn' class='searchBtn' onclick='windows[3].searchObjects()'>Search</div>
-    <input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[3].search()' />
+<div>Quick Add</div>
+<div id='objSearchBtn' class='searchBtn' onclick='windows[3].searchObjects()'>Search</div>
+<input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[3].search()' />
 </div>
 <div class="windowBody">
-    <div class="buttonGrid" style="row-gap: 10px" >${this.search(false)}</div>
+<div class="buttonGrid" style="row-gap: 10px" >${this.search(false)}</div>
 </div>`;
         }
 
@@ -227,14 +227,14 @@ class Mod {
                     const img = btn ? `img/${formattedName.replace(/ /g, '').toLowerCase()}.png` : '';
 
                     return `<div class="quickAddButton">
-    <div class="previewDesc" onclick="window.closeWindow(),mod.createNearObject(${e.id})">
-    <div>${desc}</div>
+<div class="previewDesc" onclick="window.closeWindow(),mod.createNearObject(${e.id})">
+<div>${desc}</div>
 </div>
 <div class="previewImg" style="background-size:${100*size}%;background-image:url(${img})">
-    <div>${formattedName}</div>
+<div>${formattedName}</div>
 </div>
-                        </div>`
-                    }).join("\n");
+</div>`
+                }).join("\n");
             } else if (search.trim().length) {
                 html = "No Objects found";
             }
@@ -328,6 +328,8 @@ class Mod {
         };
 
         window.onkeydown = e => {
+            if (e.key === 'Escape') return window.closeWindow();
+
             if (!T3D.isTyping(e) && T3D.enabled) {
                 const fn = actions[e.keyCode] || actions[e.key];
                 if (!e.ctrlKey && fn) {
