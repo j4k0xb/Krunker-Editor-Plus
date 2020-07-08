@@ -3,8 +3,8 @@
 ## Features
 - Quicksearch gui (press n)
 - Shows the real hitbox of rotated collidable objects and ladders
+- Shows rotation in degrees instead of radians
 - ALT+click to select objects behind invisible ones or inside groups
-- Selected object's outline blinks
 - asset/placeholder/group rotation fix
 - Custom position/rotation/scale snapping with an accuracy of up to 0.001: *Advanced tab→Snapping*
 - Custom hotkeys for creating and modifying objects (See the *Help* button in the editor)
