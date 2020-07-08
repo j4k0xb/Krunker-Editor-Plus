@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.2
+// @version      1.3
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @author       Jakob#8686
 // @include      /^(https?:\/\/)?(www\.)?(.+)krunker\.io\/editor\.html/
 // @run-at       document-start
-/* globals $, dat */
+/* globals $, T3D, GUI, mod, windows */
 // ==/UserScript==
 
 function GM_addStyle(css) {
@@ -22,70 +22,25 @@ function GM_addStyle(css) {
     sheet.insertRule(css, (sheet.rules || sheet.cssRules || []).length);
 }
 
-GM_addStyle('.toast{width:200px;height:20px;height:auto;position:absolute;left:50%;margin-left:-100px;bottom:50px;background-color:#383838;color:#f0f0f0;font-family:Calibri;font-size:20px;padding:10px;text-align:center;border-radius:5px;-webkit-box-shadow:0 0 24px -1px #383838;-moz-box-shadow:0 0 24px -1px #383838;box-shadow:0 0 24px -1px #383838}');
 GM_addStyle('#gui { position: absolute; top: 2px; left: 2px }');
-GM_addStyle('#objSearch { width: 180px; }');
-
-const GM_JQ = document.createElement('script');
-GM_JQ.src = 'https://code.jquery.com/jquery-3.5.0.min.js';
-GM_JQ.type = 'text/javascript';
-document.getElementsByTagName('head')[0].appendChild(GM_JQ);
+GM_addStyle('#objSearch { width: 180px; float: right; margin: 0 10px 0 0 }');
+GM_addStyle('#objSearchBtn { float: right; margin: 0 }');
 
 class Mod {
     constructor(version) {
         this.version = version;
         this.hooks = {
             objectInstance: null,
-            gui: null,
             assets: null,
             utils: null,
         };
         this.defaultSettings = null;
         this.settings = {
-            blinkSelected: false,
             selectBehindInvis: true,
         };
-        this.mainMenu = null;
-        this.settingsMenu = null;
-        this.gui = null;
-
-        document.body.innerHTML += '<div class="toast" style="display:none"></div>';
-
-        this.shortcuts = {
-            'c': _ => this.createNearObject(0),
-            'g': _ => this.createNearObject(24),
-            'r': _ => this.createNearObject(29),
-            't': _ => this.createNearObject(27),
-            'f': _ => this.flipXZ(),
-            'n': _ => window.showWindow(10),
-            // shift:
-            'B': _ => window.T3D.toggleProp("ambient"),
-        };
-        this.addShortcuts();
-
-        const timer = setInterval(_ => {
-            if (window.T3D) {
-                this.onEditorInit();
-                clearInterval(timer);
-            }
-        }, 50);
-
-        const user = localStorage.getItem("krunker_username");
-        this.showToast(`Editor+ loaded! Enjoy${user ? ", " + user : ""} ;)`);
+        this.defaultConfig = {};
     }
 
-    addGui() {
-        this.gui = new dat.GUI;
-        this.gui.domElement.id = 'gui';
-        this.gui.width = 300;
-
-        this.mainMenu = this.gui.addFolder("Editor+ v" + this.version);
-        this.mainMenu.open();
-
-        this.settingsMenu = this.mainMenu.addFolder("Settings");
-        this.settingsMenu.add(this.settings, "selectBehindInvis").name("Ignore Invis Obj [ALT]").onChange(t => { this.setSettings('selectBehindInvis', t) });
-        this.settingsMenu.add(this.settings, "blinkSelected").name("Blink selected object").onChange(t => { this.setSettings('blinkSelected', t) });
-    }
 
     setupSettings() {
         this.defaultSettings = JSON.parse(JSON.stringify(this.settings));
@@ -99,6 +54,24 @@ class Mod {
         let jsp = JSON.parse(ls);
         for (let set in jsp) {
             this.settings[set] = jsp[set];
+        }
+
+        windows[2].tabNames.push("Editor+");
+        GUI.window.settings["editor+"] = {
+            gen: () => {
+                GUI.window.settings["editor+"].blueprint = {
+                    selectBehindInvis: {
+                        name: "Select objects through invisible ones [ALT]",
+                        object: mod.settings,
+                        key: "selectBehindInvis",
+                        type: "switch",
+                        onChange: (e, n) => {
+                            mod.setSettings("selectBehindInvis", n)
+                        }
+                    }
+                };
+                return GUI.build(["window", "settings", "editor+", "blueprint"])
+            }
         }
     }
 
@@ -121,60 +94,77 @@ class Mod {
         return Array.isArray(rot) && rot.reduce((sum,r) => sum+Math.round(Math.abs(r)*1e6)) != 0;
     }
 
-    // loop() {
-    // }
+    radToDeg(arr) {
+        if (!arr) return arr;
+        return (T3D.settings.degToRad ? arr.map(r => r * 180 / Math.PI) : arr)
+            .map(r => Math.abs(r) < 1e-10 ? 0 : r.round(6));
+    }
+
+    regenerateAll() {
+        T3D.regenTerrain();
+        T3D.regenZone();
+        T3D.regenSky();
+        T3D.updateSun();
+        T3D.updateDeathBarrier();
+
+        T3D.ambientLight.color.set(T3D.mapConfig.ambient);
+        T3D.ambientLight.intensity = T3D.mapConfig.ambientI;
+        T3D.backgroundScene.background = new T3D.THREE.Color(T3D.mapConfig.sky);
+        T3D.skyLight.color.set(T3D.mapConfig.light);
+        T3D.skyLight.intensity = T3D.mapConfig.lightI;
+        T3D.scene.fog.color.set(T3D.mapConfig.fog);
+        T3D.scene.fog.far = T3D.mapConfig.fogD;
+    }
 
     onEditorInit() {
-        const helpHTML = window.windows.filter(w => w.header == "Help")[0].gen() + "<div style='float: left;width: 50%;'><h4 style='font-size:23px;color:#aacfcf;'>Editor+</h4><p><b>n</b> = quick search</p><p><b>c</b> = create near cube</p><p><b>t</b> = create near teleporter</p><p><b>g</b> = create near gate</p><p><b>r</b> = create near trigger</p><p><b>f</b> = flip x/z size</p><p><b>shift b</b> = toggle shading</p></div>";
-        window.windows.filter(w => w.header == "Help")[0].gen = function () {
-            return helpHTML;
+        this.setupSettings();
+        this.addShortcuts();
+        this.patchQuickAdd();
+
+        this.defaultConfig.mapConfig = JSON.parse(JSON.stringify(T3D.mapConfig));
+        this.defaultConfig.serverConfig = JSON.parse(JSON.stringify(T3D.serverConfig));
+        this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(T3D.gameConfig));
+        this.defaultConfig.objConfig = JSON.parse(JSON.stringify(T3D.objConfig));
+
+
+        GUI.html.input.fixed._vector3 = GUI.html.input.fixed.vector3;
+        GUI.html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
+            if (e === "Rotation") r = mod.radToDeg(r);
+            return GUI.html.input.fixed._vector3(e, n, r, i, a, o);
         }
 
-        window.windows[9] = {
-            header: "Search",
-            searchObjects: function() {
-                const search = document.getElementById("objSearch").value.toUpperCase();
-                const result = search.trim().length ? window.mod.hooks.assets.prefabs
-                .filter(p => p.name.indexOf(search) != -1)
-                .sort((a,b) => a.name.length - b.name.length)
-                : [];
+        T3D._importMap = T3D.importMap;
+        T3D.importMap = e => {
+            T3D._importMap(e);
+            mod.regenerateAll();
+        };
 
-                if (window.event.keyCode == 13 && result.length) {
-                    window.closeWindow();
-                    window.mod.createNearObject(result[0].id);
-                    return;
-                }
+        T3D._clearMap = T3D.clearMap;
+        T3D.clearMap = () => {
+            Object.assign(T3D.mapConfig, mod.defaultConfig.mapConfig);
+            Object.assign(T3D.serverConfig, mod.defaultConfig.serverConfig);
+            Object.assign(T3D.gameConfig, mod.defaultConfig.gameConfig);
+            Object.assign(T3D.objConfig, mod.defaultConfig.objConfig);
 
-                let html = "";
+            T3D._clearMap();
+            mod.regenerateAll();
+        };
 
-                if (result.length) {
-                    html = "<div style='height:10px'></div>";
-                    result.forEach(p => {
-                        html += "<a style='display: block' href='javascript:window.closeWindow(),window.mod.createNearObject(" + p.id + ")'>" + window.mod.hooks.utils.formatConstName(p.name) + "</a>";
-                    });
-                } else if (search.trim().length) {
-                    html = "No Objects found";
-                }
-                document.getElementById("objectSearchResult").innerHTML = html;
-            },
-            gen: function() {
-                return "</div><div style='color:rgba(0,0,0,0.3)' id='objectList'>"
-                    + "<input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[9].searchObjects()' />"
-                    + "<div class='searchBtn' onclick='windows[1].searchObjects()'>Search</div><div style='color:rgba(0,0,0,0.5);margin-top:10px' id='objectSearchResult'></div></div>";
-            }
+        T3D._toggleProp = T3D.toggleProp;
+        T3D.toggleProp = (e, t = null) => {
+            T3D._toggleProp(e, t);
+            T3D.updateObjConfigGUI();
+        };
+
+        T3D.raycaster._intersectObjects = T3D.raycaster.intersectObjects;
+        T3D.raycaster.intersectObjects = (e, t, n) => {
+            if (event.altKey && mod.settings.selectBehindInvis) e = e.filter(x => x.userData.owner.visible && x.userData.owner.objType != "PLACEHOLDER");
+            return T3D.raycaster._intersectObjects(e, t, n);
         }
 
-        window.T3D.radToDeg = arr => (window.T3D.settings.degToRad ? arr.map(r => r * 180 / Math.PI) : arr).map(r => Math.abs(r) < 1e-10 ? 0 : r);
-
-        window.T3D.raycaster._intersectObjects = window.T3D.raycaster.intersectObjects;
-        window.T3D.raycaster.intersectObjects = (e, t, n) => {
-            if (event.altKey && window.mod.settings.selectBehindInvis) e = e.filter(x => x.userData.owner.visible && x.userData.owner.objType != "PLACEHOLDER");
-            return window.T3D.raycaster._intersectObjects(e, t, n);
-        }
-
-        window.T3D._fixHitbox = window.T3D.fixHitbox;
-        window.T3D.fixHitbox = e => {
-            if (e = e || window.T3D.objectSelected()) {
+        T3D._fixHitbox = T3D.fixHitbox;
+        T3D.fixHitbox = e => {
+            if (e = e || T3D.objectSelected()) {
                 let rx = Math.round(e.rotation.x*180/Math.PI);
                 let rz = Math.round(e.rotation.z*180/Math.PI);
                 let ry = Math.round(e.rotation.y*180/Math.PI);
@@ -192,38 +182,154 @@ class Mod {
                 }
             }
 
-            return window.T3D._fixHitbox(e);
+            return T3D._fixHitbox(e);
         }
-
-        this.setupSettings();
-        this.addGui();
     }
 
-    showToast(msg, duration = 3000) {
-        $('.toast').stop().text(msg).fadeIn(400).delay(duration).fadeOut(400);
+    patchQuickAdd() {
+        windows[3].gen = function() {
+            return `<div class="windowHeader">
+    <div>Quick Add</div>
+    <div id='objSearchBtn' class='searchBtn' onclick='windows[3].searchObjects()'>Search</div>
+    <input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[3].search()' />
+</div>
+<div class="windowBody">
+    <div class="buttonGrid" style="row-gap: 10px" >${this.search(false)}</div>
+</div>`;
+        }
+
+        windows[3].hideScroll = false;
+        windows[3].search = function(hasLoaded = true) {
+            let result, search = '';
+
+            if (hasLoaded) search = document.getElementById("objSearch").value.toUpperCase();
+
+            if (search.length) {
+                result = mod.hooks.assets.prefabs.filter(p => p.name.indexOf(search) != -1).sort((a,b) => a.name.length - b.name.length);
+            } else {
+                const defaultNames = Object.keys(this.buttons).map(name => name.toUpperCase().replace(/ /g, '_'));
+                result = mod.hooks.assets.prefabs.filter(p => defaultNames.includes(p.name));
+            }
+
+            if (window.event && window.event.keyCode == 13 && result.length) {
+                window.closeWindow();
+                mod.createNearObject(result[0].id);
+                return;
+            }
+
+            let html = "";
+
+            if (result.length) {
+                html = result.map(e => {
+                    const formattedName = mod.hooks.utils.formatConstName(e.name);
+                    const btn = windows[3].buttons[formattedName];
+                    const { size, desc } = btn ? btn : {size: .5, desc: formattedName};
+                    const img = btn ? `img/${formattedName.replace(/ /g, '').toLowerCase()}.png` : '';
+
+                    return `<div class="quickAddButton">
+    <div class="previewDesc" onclick="window.closeWindow(),mod.createNearObject(${e.id})">
+    <div>${desc}</div>
+</div>
+<div class="previewImg" style="background-size:${100*size}%;background-image:url(${img})">
+    <div>${formattedName}</div>
+</div>
+                        </div>`
+                    }).join("\n");
+            } else if (search.trim().length) {
+                html = "No Objects found";
+            }
+
+            if (hasLoaded) document.getElementsByClassName("buttonGrid")[0].innerHTML = html;
+            return html;
+        };
     }
 
     flipXZ(e = null) {
-        if (e = e || window.T3D.objectSelected()) {
+        if (e = e || T3D.objectSelected()) {
             [e.scale.x, e.scale.z] = [e.scale.z, e.scale.x];
-            window.T3D.updateObjConfigGUI();
+            T3D.updateObjConfigGUI();
         }
     }
 
     createNearObject(id) {
-        if (window.mod.hooks.assets.prefabs[id].name == "CUSTOM_ASSET") return window.T3D.viewAssets();
+        if (mod.hooks.assets.prefabs[id].name == "CUSTOM_ASSET") return T3D.viewAssets();
 
-        let t = new window.T3D.THREE.Vector3(0, -5, -30);
-        t.applyQuaternion(window.T3D.camera.getWorldQuaternion());
-        let n = window.T3D.camera.getWorldPosition();
+        let t = new T3D.THREE.Vector3(0, -5, -30);
+        t.applyQuaternion(T3D.camera.getWorldQuaternion());
+        let n = T3D.camera.getWorldPosition();
         n.add(t.multiplyScalar(1));
-        window.T3D.addObject(window.mod.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]));
+        T3D.addObject(mod.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]));
     }
 
     addShortcuts() {
+        windows[0].tabNames.push("Editor+");
+        GUI.window.controls["editor+"] = {
+            gen: () => {
+                let e = ["window", "controls", "editor+"];
+                const controls = {
+                    shading: {
+                        name: "Toggle shading",
+                        object: { val: "Shift + B" },
+                        key: "val",
+                        type: "key"
+                    },
+                    quickadd: {
+                        name: "Quick add",
+                        object: { val: "N" },
+                        key: "val",
+                        type: "key"
+                    },
+                    createcube: {
+                        name: "Create cube",
+                        object: { val: "C" },
+                        key: "val",
+                        type: "key"
+                    },
+                    creategate: {
+                        name: "Create gate",
+                        object: { val: "G" },
+                        key: "val",
+                        type: "key"
+                    },
+                    createtrigger: {
+                        name: "Create trigger",
+                        object: { val: "R" },
+                        key: "val",
+                        type: "key"
+                    },
+                    createteleporter: {
+                        name: "Create teleporter",
+                        object: { val: "T" },
+                        key: "val",
+                        type: "key"
+                    },
+                    flipxz: {
+                        name: "Flip x/z size",
+                        object: { val: "F" },
+                        key: "val",
+                        type: "key"
+                    }
+                };
+
+                GUI.window.controls["editor+"].blueprint = controls;
+                return GUI.build(["window", "controls", "editor+", "blueprint"])
+            }
+        }
+
+        const actions = {
+            'c': _ => this.createNearObject(0),
+            'g': _ => this.createNearObject(24),
+            'r': _ => this.createNearObject(29),
+            't': _ => this.createNearObject(27),
+            'f': _ => this.flipXZ(),
+            'n': _ => window.showWindow(4),
+            // shift:
+            'B': _ => T3D.toggleProp("ambient"),
+        };
+
         window.onkeydown = e => {
-            if (!window.T3D.isTyping(e) && window.T3D.enabled) {
-                const fn = this.shortcuts[e.keyCode] || this.shortcuts[e.key];
+            if (!T3D.isTyping(e) && T3D.enabled) {
+                const fn = actions[e.keyCode] || actions[e.key];
                 if (!e.ctrlKey && fn) {
                     fn();
                     e.preventDefault();
@@ -264,7 +370,7 @@ const observer = new MutationObserver(mutations => {
     });
 });
 
-setTimeout(_ => {
+setTimeout(() => {
     if ((!unsafeWindow.code || !unsafeWindow.mod || !unsafeWindow.mod.hooks.assets) && confirm("Editor+ couldn't patch the script, please reload the page")) location.reload();
 }, 10000);
 
@@ -274,52 +380,37 @@ observer.observe(document.documentElement, {
 });
 
 function patchScript(code) {
-
-    code = code.replace(/((\w+)\.getLineMaterial=)/, 'window.mod.hooks.objectInstance=$2;$1')
-        .replace(/(const initScene)/, 'window.mod.hooks.assets=ASSETS;window.mod.hooks.utils=UTILS;$1')
-        // .replace(/this\.transformControl\.update\(\)/, 'this.transformControl.update(),window.mod.loop()')
-        .replace(/\[\],(\w+\.?\w+?).open\(\),/, '[],$1.open(),window.mod.hooks.gui=$1,')
-        .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round to 0.001 on serialization (generating json)
+    code = code.replace(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
+        .replace(/(const initScene)/, 'mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$1')
+        .replace(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
+        .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
         .replace(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
         .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
-        .replace(/(Snapping"),1,(\d+),1/g, '$1,0.001,$2,0.001') // gui slider precision
-        .replace(/\0?.1(\)\.name\("Texture Offset)/g, '0.01$1') // texture offset precision
         .replace(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
-        .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group rotation
-        .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'window.mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, always show hitbox for ladders
+        .replace(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
+        .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group clockwise rotation
+        .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
-        .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // replace colour
-        .replace(/(update\(\w+,(\w+)\)\{)/, '$1 if (window.T3D) {let ob = window.T3D.transformControl.object; if (this.boxShape){ if (ob && ob.userData.owner != this || Math.round($2) %2 == 0) this.boxShape.visible = true; else if (ob && window.mod.settings.blinkSelected) this.boxShape.visible = false; }}') // boxShape blink
-        .replace('"channel",0,100,1)', '"channel",0,1000,1)') // more teleporter channels
-        .replace(',r.open()', ',this.wasOpen["Style"] && this.settings.preserveFolderState && r.open()') // remember style open/closed
-        .replace(/(T3D\.toggleWindow\(!0\)\))/, '$1\ndocument.getElementById("menuWindow").style.width = e == 10 ? "300px" : ""') // custom search window width
-        .replace(/(arrayAttribute=function.*?{)/, '$1n = t == "rot" ? this.radToDeg(n) : n;') // display rotation deg
-        .replace(/(\w\.)rotateOnAxis(\(\w,\w\))/, '$1rotateOnWorldAxis$2') // always rotate group children on world axis
+        .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
+        .replace(/(key:"channel",.*?),100,/, '$1,1000,') // more teleporter channels
+        .replace(/(\w\.)rotateOnAxis(\(\w,\w\))/, '$1rotateOnWorldAxis$2') // rotate group children on world axis
         .replace(/(,\w\.owner\.rotation)\)/, '$1.clone().reorder("YXZ"))') // fix group y rotation
+        .replace(/=(stringifyColor)/, '=UTILS.$1')
+        .replace(/onChange:\(\)(=>\{a.tAlign=)/, 'onChange:(e,s)$1') // fix sign alignment gui
+        .replace(/(visible:\{name:)"Hixbox.*?"/, '$1"Toggle visibility"') // fix wrong control name
+        .replace(/([Hh])ixbox/g, '$1itbox') // spelling
 
-    code = `${Mod.toString()}\nwindow.mod = new Mod(${GM.info.script.version});${code}`
+    code = `${Mod.toString()}\nmod = new Mod(${GM.info.script.version});${code}`;
 
-    let jQCount = 0;
+    unsafeWindow.code = code;
+    window.eval(code);
 
-    function GM_wait() {
-        if (++jQCount == 100) {
-            if (confirm("Editor+ couldn't load jQuery, please reload the page")) location.reload();
-            return;
-        }
-        if (typeof unsafeWindow.jQuery == 'undefined') window.setTimeout(GM_wait, 100);
-        else {
-            unsafeWindow.code = code;
-            window.eval(code);
+    document.title += "+";
+    const favicon = document.querySelector('link[rel~="icon"]');
+    const clone = favicon.cloneNode(true);
+    clone.href = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMAUExURQAAACgoKD09PTJgdQ1ugRCNo02Qr2mUvXmTy/8AAKmys9Hc3////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM3i5YIAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7CAAAOwgEVKEqAAAAAVklEQVQoU4XM0Q6AIAxDUVcdA7b//92KxBAiUe/jSdqN3HtklBLkK0SrQcSActeAzDmtME1Is5TMxukDABHrXStgAhG0OtR6HLV+gbuqu4jqHywTADgBgTMo+Z94RQQAAAAASUVORK5CYII=';
+    favicon.parentNode.removeChild(favicon);
+    document.head.appendChild(clone);
 
-            document.title += "+";
-            const favicon = document.querySelector('link[rel~="icon"]');
-            const clone = favicon.cloneNode(!0);
-            clone.href = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMAUExURQAAACgoKD09PTJgdQ1ugRCNo02Qr2mUvXmTy/8AAKmys9Hc3////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM3i5YIAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7CAAAOwgEVKEqAAAAAVklEQVQoU4XM0Q6AIAxDUVcdA7b//92KxBAiUe/jSdqN3HtklBLkK0SrQcSActeAzDmtME1Is5TMxukDABHrXStgAhG0OtR6HLV+gbuqu4jqHywTADgBgTMo+Z94RQQAAAAASUVORK5CYII=';
-            favicon.parentNode.removeChild(favicon);
-            document.head.appendChild(clone);
-
-            console.log("Done");
-        }
-    }
-    GM_wait();
+    console.log("Done");
 }
