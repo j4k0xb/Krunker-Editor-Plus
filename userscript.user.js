@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.3.1
+// @version      1.4
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -402,7 +402,7 @@ function patchScript(code) {
         .replace(/(visible:\{name:)"Hixbox.*?"/, '$1"Toggle visibility"') // fix wrong control name
         .replace(/([Hh])ixbox/g, '$1itbox') // spelling
 
-    code = `${Mod.toString()}\nmod = new Mod(${GM.info.script.version});${code}`;
+    code = `${Mod.toString()}\nmod = new Mod('${GM.info.script.version}');${code}`;
 
     unsafeWindow.code = code;
     window.eval(code);
