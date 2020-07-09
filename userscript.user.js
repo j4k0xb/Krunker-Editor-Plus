@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.4
+// @version      1.5
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -52,12 +52,10 @@ class Mod {
                         object: mod.settings,
                         key: "selectBehindInvis",
                         type: "switch",
-                        onChange: (e, n) => {
-                            mod.setSettings("selectBehindInvis", n)
-                        }
+                        onChange: (e, n) => mod.setSettings("selectBehindInvis", n)
                     }
                 };
-                return GUI.build(["window", "settings", "editor+", "blueprint"])
+                return GUI.build(["window", "settings", "editor+", "blueprint"]);
             }
         }
 
@@ -91,7 +89,13 @@ class Mod {
     }
 
     hasRotation(rot) {
-        return Array.isArray(rot) && rot.reduce((sum,r) => sum+Math.round(Math.abs(r)*1e6)) != 0;
+        if (!Array.isArray(rot)) return;
+
+        rot = new T3D.THREE.Euler().set(...rot).reorder("YXZ").toVector3().toArray();
+        rot = rot.map(r => r.round(4));
+        rot[1] = rot[1] % Math.PI.round(4);
+
+        return rot.some(r => r % (2*Math.PI).round(4) != 0);
     }
 
     radToDeg(arr) {
@@ -116,6 +120,23 @@ class Mod {
         T3D.scene.fog.far = T3D.mapConfig.fogD;
     }
 
+    hexToRgb(hex) {
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (result) {
+            result.shift();
+            return result.map(x => parseInt(x, 16));
+        }
+        return null;
+    }
+
+    calcFontColor(color) {
+        let rgb = mod.hexToRgb(color);
+        if (!rgb) rgb = rgb.substr(4, rgb.indexOf(')') - 4).split(',').map(color => parseInt(color));
+        const brightness = (rgb[0]*299 + rgb[1]*587 + rgb[2]*114) / 1000;
+
+        return brightness > 125 ? 'black' : 'white';
+    }
+
     onEditorInit() {
         this.setupSettings();
         this.addShortcuts();
@@ -126,6 +147,15 @@ class Mod {
         this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(T3D.gameConfig));
         this.defaultConfig.objConfig = JSON.parse(JSON.stringify(T3D.objConfig));
 
+        GUI.update.color._change = GUI.update.color.change;
+        GUI.update.color.change = input => {
+            GUI.update.color._change(input);
+            input.style.color = mod.calcFontColor(input.value);
+        };
+        GUI.html.input.resizable.color = (e = "#ffffff", t = "") =>
+        `<input class="color" style="background-color:${e};color:${mod.calcFontColor(e)}" type="text" spellcheck="false" value="${e}" onchange="GUI.update.color.change(this);${t}" onmousedown="GUI.update.color.mousedown(this)">`
+
+        T3D.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
 
         GUI.html.input.fixed._vector3 = GUI.html.input.fixed.vector3;
         GUI.html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
@@ -312,7 +342,7 @@ class Mod {
                 };
 
                 GUI.window.controls["editor+"].blueprint = controls;
-                return GUI.build(["window", "controls", "editor+", "blueprint"])
+                return GUI.build(["window", "controls", "editor+", "blueprint"]);
             }
         }
 
@@ -382,25 +412,29 @@ observer.observe(document.documentElement, {
 });
 
 function patchScript(code) {
+    String.prototype.patch = function(searchValue, newValue) {
+        if (this.indexOf(searchValue) < 0 && this.search(searchValue) < 0) {
+            console.warn("Couldn't find in code:", searchValue);
+            return this;
+        }
+        return this.replace(searchValue, newValue);
+    }
+
     code = code.replace(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
-        .replace(/(const initScene)/, 'mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$1')
-        .replace(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
-        .replace(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
-        .replace(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
-        .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
-        .replace(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
-        .replace(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
-        .replace(/(\(0,1,0\)),Math.abs\(h\)/, '$1,h') // fix group clockwise rotation
-        .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
-        .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
-        .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
-        .replace(/(key:"channel",.*?),100,/, '$1,1000,') // more teleporter channels
-        .replace(/(\w\.)rotateOnAxis(\(\w,\w\))/, '$1rotateOnWorldAxis$2') // rotate group children on world axis
-        .replace(/(,\w\.owner\.rotation)\)/, '$1.clone().reorder("YXZ"))') // fix group y rotation
-        .replace(/=(stringifyColor)/, '=UTILS.$1')
-        .replace(/onChange:\(\)(=>\{a.tAlign=)/, 'onChange:(e,s)$1') // fix sign alignment gui
-        .replace(/(visible:\{name:)"Hixbox.*?"/, '$1"Toggle visibility"') // fix wrong control name
-        .replace(/([Hh])ixbox/g, '$1itbox') // spelling
+        .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
+        .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
+        .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
+        .patch(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
+        .patch('if(this.prefab.dontRound){', 'if(true){') // always dontRound
+        .patch(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
+        .patch(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
+        .patch(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
+        .patch(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
+        .patch(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
+        .patch(/(key:"channel",.*?),100,/, '$1,1000,') // more teleporter channels
+        .patch(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
+
+    String.prototype.patch = undefined;
 
     code = `${Mod.toString()}\nmod = new Mod('${GM.info.script.version}');${code}`;
 
