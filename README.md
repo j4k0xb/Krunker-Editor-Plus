@@ -7,9 +7,7 @@
 - ALT+click to select objects behind invisible ones or inside groups
 - asset/placeholder/group rotation fix
 - Custom position/rotation/scale snapping with an accuracy of up to 0.001: *Advanced tab→Snapping*
-- Custom hotkeys for creating and modifying objects (See the *Help* button in the editor)
-- JavaScript interface for interacting with the editor. Console: `mod`
- *(You should use the official `T3D` or `window.T3D` variable instead for most things)*
+- Keybinds for creating and modifying objects (See the *Help* button in the editor)
 - Always patches the most recent Krunker Editor when you open it
 - Auto-updates for this script
 
@@ -22,8 +20,8 @@
 ## Not working?
 Reload the editor page until it works, otherwise dm me on discord.
 
-## Old features which were added to the original editor
+## Old features/fixes which have been implement in the original editor
+- `100%` group rotation fix
 - `100%` *Copy Map* button
-- `100%` Toggling object properties via javascript: `T3D.toggleProp`
-- `80%` Showing the real hitbox: *Advanced→Settings→Show Real Hitboxes*
-- `30%` Keyboard shortcuts: *toggle colllidable/visible*
+- `100%` Toggling object properties via keybinds/javascript (collidable, visible)
+- `80%` Showing the real hitbox: *Edit→Settings→General→Game→Show Real Hitbox*
