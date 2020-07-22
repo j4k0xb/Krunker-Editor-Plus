@@ -11,7 +11,7 @@
 // ==/UserScript==
 
 function GM_addStyle(css) {
-    const style = document.getElementById("GM_addStyleBy8626") || (function () {
+    const style = document.getElementById("GM_addStyleBy8626") || (function() {
         const style = document.createElement('style');
         style.type = 'text/css';
         style.id = "GM_addStyleBy8626";
@@ -22,7 +22,6 @@ function GM_addStyle(css) {
     sheet.insertRule(css, (sheet.rules || sheet.cssRules || []).length);
 }
 
-GM_addStyle('#gui { position: absolute; top: 2px; left: 2px }');
 GM_addStyle('#objSearch { width: 180px; float: right; margin: 0 10px 0 0 }');
 GM_addStyle('#objSearchBtn { float: right; margin: 0 }');
 
@@ -33,6 +32,7 @@ class Mod {
             objectInstance: null,
             assets: null,
             utils: null,
+            gui: null
         };
         this.defaultSettings = null;
         this.settings = {
@@ -55,7 +55,7 @@ class Mod {
                         onChange: (e, n) => mod.setSettings("selectBehindInvis", n)
                     }
                 };
-                return GUI.build(["window", "settings", "editor+", "blueprint"]);
+                return mod.hooks.gui._build(["window", "settings", "editor+", "blueprint"]);
             }
         }
 
@@ -95,7 +95,7 @@ class Mod {
         rot = rot.map(r => r.round(4));
         rot[1] = rot[1] % Math.PI.round(4);
 
-        return rot.some(r => r % (2*Math.PI).round(4) != 0);
+        return rot.some(r => r % (2 * Math.PI).round(4) != 0);
     }
 
     radToDeg(arr) {
@@ -129,14 +129,6 @@ class Mod {
         return null;
     }
 
-    calcFontColor(color) {
-        let rgb = mod.hexToRgb(color);
-        if (!rgb) rgb = rgb.substr(4, rgb.indexOf(')') - 4).split(',').map(color => parseInt(color));
-        const brightness = (rgb[0]*299 + rgb[1]*587 + rgb[2]*114) / 1000;
-
-        return brightness > 125 ? 'black' : 'white';
-    }
-
     onEditorInit() {
         this.setupSettings();
         this.addShortcuts();
@@ -147,20 +139,12 @@ class Mod {
         this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(T3D.gameConfig));
         this.defaultConfig.objConfig = JSON.parse(JSON.stringify(T3D.objConfig));
 
-        GUI.update.color._change = GUI.update.color.change;
-        GUI.update.color.change = input => {
-            GUI.update.color._change(input);
-            input.style.color = mod.calcFontColor(input.value);
-        };
-        GUI.html.input.resizable.color = (e = "#ffffff", t = "") =>
-        `<input class="color" style="background-color:${e};color:${mod.calcFontColor(e)}" type="text" spellcheck="false" value="${e}" onchange="GUI.update.color.change(this);${t}" onmousedown="GUI.update.color.mousedown(this)">`
-
         T3D.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
 
-        GUI.html.input.fixed._vector3 = GUI.html.input.fixed.vector3;
-        GUI.html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
+        mod.hooks.gui._html.input.fixed._vector3 = mod.hooks.gui._html.input.fixed.vector3;
+        mod.hooks.gui._html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
             if (e === "Rotation") r = mod.radToDeg(r);
-            return GUI.html.input.fixed._vector3(e, n, r, i, a, o);
+            return mod.hooks.gui._html.input.fixed._vector3(e, n, r, i, a, o);
         }
 
         T3D._importMap = T3D.importMap;
@@ -195,9 +179,9 @@ class Mod {
         T3D._fixHitbox = T3D.fixHitbox;
         T3D.fixHitbox = e => {
             if (e = e || T3D.objectSelected()) {
-                let rx = Math.round(e.rotation.x*180/Math.PI);
-                let rz = Math.round(e.rotation.z*180/Math.PI);
-                let ry = Math.round(e.rotation.y*180/Math.PI);
+                let rx = Math.round(e.rotation.x * 180 / Math.PI);
+                let rz = Math.round(e.rotation.z * 180 / Math.PI);
+                let ry = Math.round(e.rotation.y * 180 / Math.PI);
                 if (Math.abs(rx) < 1e-10) rx = 0;
                 if (Math.abs(ry) < 1e-10) ry = 0;
                 if (Math.abs(rz) < 1e-10) rz = 0;
@@ -235,7 +219,7 @@ class Mod {
             if (hasLoaded) search = document.getElementById("objSearch").value.toUpperCase();
 
             if (search.length) {
-                result = mod.hooks.assets.prefabs.filter(p => p.name.indexOf(search) != -1).sort((a,b) => a.name.length - b.name.length);
+                result = mod.hooks.assets.prefabs.filter(p => p.name.indexOf(search) != -1).sort((a, b) => a.name.length - b.name.length);
             } else {
                 const defaultNames = Object.keys(this.buttons).map(name => name.toUpperCase().replace(/ /g, '_'));
                 result = mod.hooks.assets.prefabs.filter(p => defaultNames.includes(p.name));
@@ -253,14 +237,14 @@ class Mod {
                 html = result.map(e => {
                     const formattedName = mod.hooks.utils.formatConstName(e.name);
                     const btn = windows[3].buttons[formattedName];
-                    const { size, desc } = btn ? btn : {size: .5, desc: formattedName};
+                    const { size, desc } = btn ? btn : { size: .5, desc: formattedName };
                     const img = btn ? `img/${formattedName.replace(/ /g, '').toLowerCase()}.png` : '';
 
                     return `<div class="quickAddButton">
 <div class="previewDesc" onclick="window.closeWindow(),mod.createNearObject(${e.id})">
 <div>${desc}</div>
 </div>
-<div class="previewImg" style="background-size:${100*size}%;background-image:url(${img})">
+<div class="previewImg" style="background-size:${100 * size}%;background-image:url(${img})">
 <div>${formattedName}</div>
 </div>
 </div>`
@@ -342,7 +326,7 @@ class Mod {
                 };
 
                 GUI.window.controls["editor+"].blueprint = controls;
-                return GUI.build(["window", "controls", "editor+", "blueprint"]);
+                return mod.hooks.gui._build(["window", "controls", "editor+", "blueprint"]);
             }
         }
 
@@ -420,8 +404,9 @@ function patchScript(code) {
         return this.replace(searchValue, newValue);
     }
 
-    code = code.replace(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
+    code = code.patch(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
         .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
+        .patch(/(window\.GUI=.*?removePrivKeys\((\w+)\))/g, 'mod.hooks.gui = $2, $1')
         .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
         .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
         .patch(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
@@ -431,7 +416,6 @@ function patchScript(code) {
         .patch(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
         .patch(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .patch(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
-        .patch(/(key:"channel",.*?),100,/, '$1,1000,') // more teleporter channels
         .patch(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
 
     String.prototype.patch = undefined;
