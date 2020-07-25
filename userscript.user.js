@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.6
+// @version      1.7
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -22,8 +22,7 @@ function GM_addStyle(css) {
     sheet.insertRule(css, (sheet.rules || sheet.cssRules || []).length);
 }
 
-GM_addStyle('#objSearch { width: 180px; float: right; margin: 0 10px 0 0 }');
-GM_addStyle('#objSearchBtn { float: right; margin: 0 }');
+GM_addStyle('#objSearch { width: 180px; float: right; margin: 0 10px 0 10px }');
 
 class Mod {
     constructor(version) {
@@ -32,7 +31,6 @@ class Mod {
             objectInstance: null,
             assets: null,
             utils: null,
-            gui: null
         };
         this.defaultSettings = null;
         this.settings = {
@@ -44,9 +42,9 @@ class Mod {
 
     setupSettings() {
         windows[2].tabNames.push("Editor+");
-        GUI.window.settings["editor+"] = {
+        GUI._window.settings["editor+"] = {
             gen: () => {
-                GUI.window.settings["editor+"].blueprint = {
+                GUI._window.settings["editor+"].blueprint = {
                     selectBehindInvis: {
                         name: "Select objects through invisible ones [ALT]",
                         object: mod.settings,
@@ -55,7 +53,7 @@ class Mod {
                         onChange: (e, n) => mod.setSettings("selectBehindInvis", n)
                     }
                 };
-                return mod.hooks.gui._build(["window", "settings", "editor+", "blueprint"]);
+                return GUI._build(["_window", "settings", "editor+", "blueprint"]);
             }
         }
 
@@ -141,10 +139,10 @@ class Mod {
 
         T3D.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
 
-        mod.hooks.gui._html.input.fixed._vector3 = mod.hooks.gui._html.input.fixed.vector3;
-        mod.hooks.gui._html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
+        GUI._html.input.fixed._vector3 = GUI._html.input.fixed.vector3;
+        GUI._html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
             if (e === "Rotation") r = mod.radToDeg(r);
-            return mod.hooks.gui._html.input.fixed._vector3(e, n, r, i, a, o);
+            return GUI._html.input.fixed._vector3(e, n, r, i, a, o);
         }
 
         T3D._importMap = T3D.importMap;
@@ -201,60 +199,52 @@ class Mod {
     }
 
     patchQuickAdd() {
+        if (windows[3].buttons === undefined) windows[3].buttons = T3D.settings.quickAddButtons;
+
+        windows[3]._buttons = [...windows[3].buttons];
+        windows[3]._gen = windows[3].gen;
         windows[3].gen = function() {
-            return `<div class="windowHeader">
-<div>Quick Add</div>
-<div id='objSearchBtn' class='searchBtn' onclick='windows[3].searchObjects()'>Search</div>
-<input type='text' id='objSearch' class='smlInput' autofocus placeholder='Object Name' onkeyup='windows[3].search()' />
-</div>
-<div class="windowBody">
-<div class="buttonGrid" style="row-gap: 10px" >${this.search(false)}</div>
-</div>`;
+            windows[3].buttons = [...windows[3]._buttons];
+
+            return windows[3]._gen().replace('</div>',
+                `</div><input type='text' id='objSearch' class='smlInput' autofocus placeholder='Search' onkeyup='windows[3].search()' />`);
         }
 
         windows[3].hideScroll = false;
-        windows[3].search = function(hasLoaded = true) {
-            let result, search = '';
-
-            if (hasLoaded) search = document.getElementById("objSearch").value.toUpperCase();
+        windows[3].search = function() {
+            let buttons = [...windows[3]._buttons];
+            const search = document.getElementById("objSearch").value.toUpperCase();
 
             if (search.length) {
-                result = mod.hooks.assets.prefabs.filter(p => p.name.indexOf(search) != -1).sort((a, b) => a.name.length - b.name.length);
-            } else {
-                const defaultNames = Object.keys(this.buttons).map(name => name.toUpperCase().replace(/ /g, '_'));
-                result = mod.hooks.assets.prefabs.filter(p => defaultNames.includes(p.name));
+                const prefabs = mod.hooks.assets.prefabs.filter(p => p.name.indexOf(search) != -1).sort((a, b) => a.name.length - b.name.length);
+                const prefabNames = prefabs.map(p => p.name);
+                const btnNames = buttons.filter(btn => btn.name).map(btn => btn.name.toUpperCase().replace(' ', '_'));
+
+                prefabs.forEach(p => {
+                    if (!btnNames.includes(p.name)) {
+                        const btn = {
+                            name: mod.hooks.utils.formatConstName(p.name),
+                            desc: '',
+                            item: p.id,
+                            size: 0.5,
+                        }
+                        btn.onClick = () => {
+                            mod.createNearObject(buttons[0].item);
+                            closeWindow();
+                        };
+                        btn.onDelete = () => { };
+                        buttons.push(btn);
+                    }
+                });
+
+                buttons = buttons.filter(btn => btn.name && prefabNames.includes(btn.name.toUpperCase().replace(' ', '_')));
             }
+            windows[3].buttons = buttons;
 
-            if (window.event && window.event.keyCode == 13 && result.length) {
-                window.closeWindow();
-                mod.createNearObject(result[0].id);
-                return;
-            }
+            if (window.event && window.event.keyCode == 13 && buttons.length) return buttons[0].onClick();
 
-            let html = "";
-
-            if (result.length) {
-                html = result.map(e => {
-                    const formattedName = mod.hooks.utils.formatConstName(e.name);
-                    const btn = windows[3].buttons[formattedName];
-                    const { size, desc } = btn ? btn : { size: .5, desc: formattedName };
-                    const img = btn ? `img/${formattedName.replace(/ /g, '').toLowerCase()}.png` : '';
-
-                    return `<div class="quickAddButton">
-<div class="previewDesc" onclick="window.closeWindow(),mod.createNearObject(${e.id})">
-<div>${desc}</div>
-</div>
-<div class="previewImg" style="background-size:${100 * size}%;background-image:url(${img})">
-<div>${formattedName}</div>
-</div>
-</div>`
-                }).join("\n");
-            } else if (search.trim().length) {
-                html = "No Objects found";
-            }
-
-            if (hasLoaded) document.getElementsByClassName("buttonGrid")[0].innerHTML = html;
-            return html;
+            const html = windows[3]._gen();
+            document.getElementsByClassName("buttonGrid")[0].innerHTML = html.substr(html.indexOf('buttonGrid') + 12, html.length - 6);
         };
     }
 
@@ -277,9 +267,9 @@ class Mod {
 
     addShortcuts() {
         windows[0].tabNames.push("Editor+");
-        GUI.window.controls["editor+"] = {
+        GUI._window.controls["editor+"] = {
             gen: () => {
-                let e = ["window", "controls", "editor+"];
+                let e = ["_window", "controls", "editor+"];
                 const controls = {
                     shading: {
                         name: "Toggle shading",
@@ -325,8 +315,8 @@ class Mod {
                     }
                 };
 
-                GUI.window.controls["editor+"].blueprint = controls;
-                return mod.hooks.gui._build(["window", "controls", "editor+", "blueprint"]);
+                GUI._window.controls["editor+"].blueprint = controls;
+                return GUI._build(["_window", "controls", "editor+", "blueprint"]);
             }
         }
 
@@ -406,7 +396,8 @@ function patchScript(code) {
 
     code = code.patch(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
         .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
-        .patch(/(window\.GUI=.*?removePrivKeys\((\w+)\))/g, 'mod.hooks.gui = $2, $1')
+        .patch(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
+        .patch('GUI.window.', 'GUI._window.')
         .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
         .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
         .patch(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
