@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.7
+// @version      1.8
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -118,15 +118,6 @@ class Mod {
         T3D.scene.fog.far = T3D.mapConfig.fogD;
     }
 
-    hexToRgb(hex) {
-        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        if (result) {
-            result.shift();
-            return result.map(x => parseInt(x, 16));
-        }
-        return null;
-    }
-
     onEditorInit() {
         this.setupSettings();
         this.addShortcuts();
@@ -199,20 +190,15 @@ class Mod {
     }
 
     patchQuickAdd() {
-        if (windows[3].buttons === undefined) windows[3].buttons = T3D.settings.quickAddButtons;
-
-        windows[3]._buttons = [...windows[3].buttons];
         windows[3]._gen = windows[3].gen;
         windows[3].gen = function() {
-            windows[3].buttons = [...windows[3]._buttons];
-
             return windows[3]._gen().replace('</div>',
                 `</div><input type='text' id='objSearch' class='smlInput' autofocus placeholder='Search' onkeyup='windows[3].search()' />`);
         }
 
         windows[3].hideScroll = false;
         windows[3].search = function() {
-            let buttons = [...windows[3]._buttons];
+            let buttons = [...T3D.settings.quickAddButtons];
             const search = document.getElementById("objSearch").value.toUpperCase();
 
             if (search.length) {
@@ -239,11 +225,15 @@ class Mod {
 
                 buttons = buttons.filter(btn => btn.name && prefabNames.includes(btn.name.toUpperCase().replace(' ', '_')));
             }
-            windows[3].buttons = buttons;
+
 
             if (window.event && window.event.keyCode == 13 && buttons.length) return buttons[0].onClick();
 
+            const originalButtons = T3D.settings.quickAddButtons;
+            T3D.settings.quickAddButtons = buttons;
             const html = windows[3]._gen();
+            T3D.settings.quickAddButtons = originalButtons;
+
             document.getElementsByClassName("buttonGrid")[0].innerHTML = html.substr(html.indexOf('buttonGrid') + 12, html.length - 6);
         };
     }
@@ -408,6 +398,7 @@ function patchScript(code) {
         .patch(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .patch(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
         .patch(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
+        .patch(/("editCustomKey".*?map.*?(\w+).*?value:)\w+/, '$1$2') // fix group editing
 
     String.prototype.patch = undefined;
 
