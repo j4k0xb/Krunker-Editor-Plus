@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.9
+// @version      2.0
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -116,6 +116,8 @@ class Mod {
         T3D.skyLight.intensity = T3D.mapConfig.lightI;
         T3D.scene.fog.color.set(T3D.mapConfig.fog);
         T3D.scene.fog.far = T3D.mapConfig.fogD;
+
+        GUI.panel.left.essential.show();
     }
 
     onEditorInit() {
