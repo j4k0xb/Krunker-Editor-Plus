@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      1.8
+// @version      1.9
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -128,6 +128,16 @@ class Mod {
         this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(T3D.gameConfig));
         this.defaultConfig.objConfig = JSON.parse(JSON.stringify(T3D.objConfig));
 
+        T3D.createPlaceholder = () => {
+            const pos = T3D.camera.getWorldPosition();
+            T3D.addObject(
+                ObjectInstance.deserialize({
+                    p: [Math.round(pos.x), Math.round(pos.y - 10), Math.round(pos.z)],
+                    id: 35,
+                })
+            );
+        };
+
         T3D.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
 
         GUI._html.input.fixed._vector3 = GUI._html.input.fixed.vector3;
@@ -192,13 +202,16 @@ class Mod {
     patchQuickAdd() {
         windows[3]._gen = windows[3].gen;
         windows[3].gen = function() {
+            if (!windows[3].originalButtons) windows[3].originalButtons = [...T3D.settings.quickAddButtons];
+            else T3D.settings.quickAddButtons = [...windows[3].originalButtons];
+
             return windows[3]._gen().replace('</div>',
                 `</div><input type='text' id='objSearch' class='smlInput' autofocus placeholder='Search' onkeyup='windows[3].search()' />`);
         }
 
         windows[3].hideScroll = false;
         windows[3].search = function() {
-            let buttons = [...T3D.settings.quickAddButtons];
+            let buttons = [...windows[3].originalButtons];
             const search = document.getElementById("objSearch").value.toUpperCase();
 
             if (search.length) {
@@ -208,31 +221,22 @@ class Mod {
 
                 prefabs.forEach(p => {
                     if (!btnNames.includes(p.name)) {
-                        const btn = {
+                        buttons.push({
                             name: mod.hooks.utils.formatConstName(p.name),
                             desc: '',
                             item: p.id,
                             size: 0.5,
-                        }
-                        btn.onClick = () => {
-                            mod.createNearObject(buttons[0].item);
-                            closeWindow();
-                        };
-                        btn.onDelete = () => { };
-                        buttons.push(btn);
+                        });
                     }
                 });
 
                 buttons = buttons.filter(btn => btn.name && prefabNames.includes(btn.name.toUpperCase().replace(' ', '_')));
             }
 
+            if (window.event && window.event.keyCode == 13 && buttons.length) return windows[3].clickButton(0);
 
-            if (window.event && window.event.keyCode == 13 && buttons.length) return buttons[0].onClick();
-
-            const originalButtons = T3D.settings.quickAddButtons;
             T3D.settings.quickAddButtons = buttons;
             const html = windows[3]._gen();
-            T3D.settings.quickAddButtons = originalButtons;
 
             document.getElementsByClassName("buttonGrid")[0].innerHTML = html.substr(html.indexOf('buttonGrid') + 12, html.length - 6);
         };
@@ -387,7 +391,6 @@ function patchScript(code) {
     code = code.patch(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
         .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
         .patch(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
-        .patch('GUI.window.', 'GUI._window.')
         .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
         .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
         .patch(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
