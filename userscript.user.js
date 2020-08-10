@@ -395,7 +395,7 @@ function patchScript(code) {
         .patch(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
         .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
         .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
-        .patch(/(t\.r=r\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
+        .patch(/(\w+\.r=\w+\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
         .patch('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .patch(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
         .patch(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
