@@ -1,7 +1,7 @@
 # Krunker Editor+
 
 ## Features
-- Quicksearch gui (press n)
+- Quicksearch gui (press x)
 - Shows the real hitbox of rotated collidable objects and ladders
 - Shows rotation in degrees instead of radians
 - ALT+click to select objects behind invisible ones or inside groups
@@ -12,7 +12,7 @@
 - Auto-updates for this script
 
 ## How to Install
-### 1. Chrome/Brave: install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en), Firefox: install [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/)
+### 1. Chrome/Brave: install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo), Firefox: install [Tampermonkey](https://addons.mozilla.org/en/firefox/addon/tampermonkey/)
 
 ### 2. [CLICK HERE](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js) to install the script
 ### 3. Open the [editor]([https://krunker.io/editor.html](https://krunker.io/editor.html))
