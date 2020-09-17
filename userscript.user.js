@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      2.0
+// @version      2.1
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -275,7 +275,7 @@ class Mod {
                     },
                     quickadd: {
                         name: "Quick add",
-                        object: { val: "N" },
+                        object: { val: "X" },
                         key: "val",
                         type: "key"
                     },
@@ -322,7 +322,7 @@ class Mod {
             'r': _ => this.createNearObject(29),
             't': _ => this.createNearObject(27),
             'f': _ => this.flipXZ(),
-            'n': _ => window.showWindow(4),
+            'x': _ => window.showWindow(4),
             // shift:
             'B': _ => T3D.toggleProp("ambient"),
         };
@@ -394,8 +394,8 @@ function patchScript(code) {
         .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
         .patch(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
         .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
-        .patch(/(t\.[ps]=t\.[ps]\.map\(e=>Math.round\()e\)/g, '$1e*1000)/1000') // round pos/size to 0.001 on serialization
-        .patch(/(\w+\.r=\w+\.map\(e=>)e.round\(2\)/, '$1Math.round(e*10000)/10000') // round rotation to 0.0001 on serialization
+        .patch(/(\w\.[ps]=\w\.[ps]\.map\((\w)=>)Math\.round\(\w\)/g, '$1$2.round(3)') // round pos/size to 0.001 on serialization
+        .patch(/(\w\.r=\w\.map\((\w)=>e.round\()2\)/, '$14)') // round rotation to 0.0001 on serialization
         .patch('if(this.prefab.dontRound){', 'if(true){') // always dontRound
         .patch(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
         .patch(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
@@ -404,6 +404,7 @@ function patchScript(code) {
         .patch(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
         .patch(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
         .patch(/("editCustomKey".*?map.*?(\w+).*?value:)\w+/, '$1$2') // fix group editing
+        .patch('edssive', 'editEmissive')
 
     String.prototype.patch = undefined;
 
