@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      2.1
+// @version      2.2
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @author       Jakob#8686
 // @include      /^(https?:\/\/)?(www\.)?(.+)krunker\.io\/editor\.html/
 // @run-at       document-start
-/* globals $, T3D, GUI, mod, windows */
+/* globals $, KE, GUI, mod, windows */
 // ==/UserScript==
 
 function GM_addStyle(css) {
@@ -28,7 +28,6 @@ class Mod {
     constructor(version) {
         this.version = version;
         this.hooks = {
-            objectInstance: null,
             assets: null,
             utils: null,
         };
@@ -89,7 +88,7 @@ class Mod {
     hasRotation(rot) {
         if (!Array.isArray(rot)) return;
 
-        rot = new T3D.THREE.Euler().set(...rot).reorder("YXZ").toVector3().toArray();
+        rot = new KE.THREE.Euler().set(...rot).reorder("YXZ").toVector3().toArray();
         rot = rot.map(r => r.round(4));
         rot[1] = rot[1] % Math.PI.round(4);
 
@@ -98,26 +97,8 @@ class Mod {
 
     radToDeg(arr) {
         if (!arr) return arr;
-        return (T3D.settings.degToRad ? arr.map(r => r * 180 / Math.PI) : arr)
+        return (KE.settings.degToRad ? arr.map(r => r * 180 / Math.PI) : arr)
             .map(r => Math.abs(r) < 1e-10 ? 0 : r.round(6));
-    }
-
-    regenerateAll() {
-        T3D.regenTerrain();
-        T3D.regenZone();
-        T3D.regenSky();
-        T3D.updateSun();
-        T3D.updateDeathBarrier();
-
-        T3D.ambientLight.color.set(T3D.mapConfig.ambient);
-        T3D.ambientLight.intensity = T3D.mapConfig.ambientI;
-        T3D.backgroundScene.background = new T3D.THREE.Color(T3D.mapConfig.sky);
-        T3D.skyLight.color.set(T3D.mapConfig.light);
-        T3D.skyLight.intensity = T3D.mapConfig.lightI;
-        T3D.scene.fog.color.set(T3D.mapConfig.fog);
-        T3D.scene.fog.far = T3D.mapConfig.fogD;
-
-        GUI.panel.left.essential.show();
     }
 
     onEditorInit() {
@@ -125,22 +106,23 @@ class Mod {
         this.addShortcuts();
         this.patchQuickAdd();
 
-        this.defaultConfig.mapConfig = JSON.parse(JSON.stringify(T3D.mapConfig));
-        this.defaultConfig.serverConfig = JSON.parse(JSON.stringify(T3D.serverConfig));
-        this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(T3D.gameConfig));
-        this.defaultConfig.objConfig = JSON.parse(JSON.stringify(T3D.objConfig));
+        this.defaultConfig.mapConfig = JSON.parse(JSON.stringify(KE.mapConfig));
+        this.defaultConfig.serverConfig = JSON.parse(JSON.stringify(KE.serverConfig));
+        this.defaultConfig.gameConfig = JSON.parse(JSON.stringify(KE.gameConfig));
+        this.defaultConfig.objConfig = JSON.parse(JSON.stringify(KE.objConfig));
 
-        T3D.createPlaceholder = () => {
-            const pos = T3D.camera.getWorldPosition();
-            T3D.addObject(
-                ObjectInstance.deserialize({
-                    p: [Math.round(pos.x), Math.round(pos.y - 10), Math.round(pos.z)],
-                    id: 35,
-                })
-            );
+        KE._regenAll = KE.regenAll;
+        KE.regenAll = (...args) => {
+            KE._regenAll(...args);
+            GUI.panel.left.essential.show();
+        }
+
+        KE.createPlaceholder = () => {
+            const pos = KE.camera.getWorldPosition();
+            KE.addObject(ObjectInstance.defaultFromType(35, [Math.round(pos.x), Math.round(pos.y - 10), Math.round(pos.z)]));
         };
 
-        T3D.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
+        KE.faces = ["+X: Right", "-X: Left", "+Y: Top", "-Y: Bottom", "-Z: Back", "+Z: Front"]
 
         GUI._html.input.fixed._vector3 = GUI._html.input.fixed.vector3;
         GUI._html.input.fixed.vector3 = (e, n = "", r = [0, 0, 0], i = "", a = "", o = "") => {
@@ -148,38 +130,25 @@ class Mod {
             return GUI._html.input.fixed._vector3(e, n, r, i, a, o);
         }
 
-        T3D._importMap = T3D.importMap;
-        T3D.importMap = e => {
-            T3D._importMap(e);
-            mod.regenerateAll();
+        KE._clearMap = KE.clearMap;
+        KE.clearMap = () => {
+            Object.assign(KE.mapConfig, mod.defaultConfig.mapConfig);
+            Object.assign(KE.serverConfig, mod.defaultConfig.serverConfig);
+            Object.assign(KE.gameConfig, mod.defaultConfig.gameConfig);
+            Object.assign(KE.objConfig, mod.defaultConfig.objConfig);
+
+            KE._clearMap();
         };
 
-        T3D._clearMap = T3D.clearMap;
-        T3D.clearMap = () => {
-            Object.assign(T3D.mapConfig, mod.defaultConfig.mapConfig);
-            Object.assign(T3D.serverConfig, mod.defaultConfig.serverConfig);
-            Object.assign(T3D.gameConfig, mod.defaultConfig.gameConfig);
-            Object.assign(T3D.objConfig, mod.defaultConfig.objConfig);
-
-            T3D._clearMap();
-            mod.regenerateAll();
-        };
-
-        T3D._toggleProp = T3D.toggleProp;
-        T3D.toggleProp = (e, t = null) => {
-            T3D._toggleProp(e, t);
-            T3D.updateObjConfigGUI();
-        };
-
-        T3D.raycaster._intersectObjects = T3D.raycaster.intersectObjects;
-        T3D.raycaster.intersectObjects = (e, t, n) => {
+        KE.raycaster._intersectObjects = KE.raycaster.intersectObjects;
+        KE.raycaster.intersectObjects = (e, t, n) => {
             if (event.altKey && mod.settings.selectBehindInvis) e = e.filter(x => x.userData.owner.visible && x.userData.owner.objType != "PLACEHOLDER");
-            return T3D.raycaster._intersectObjects(e, t, n);
+            return KE.raycaster._intersectObjects(e, t, n);
         }
 
-        T3D._fixHitbox = T3D.fixHitbox;
-        T3D.fixHitbox = e => {
-            if (e = e || T3D.objectSelected()) {
+        KE._fixHitbox = KE.fixHitbox;
+        KE.fixHitbox = e => {
+            if (e = e || KE.objectSelected()) {
                 let rx = Math.round(e.rotation.x * 180 / Math.PI);
                 let rz = Math.round(e.rotation.z * 180 / Math.PI);
                 let ry = Math.round(e.rotation.y * 180 / Math.PI);
@@ -197,15 +166,15 @@ class Mod {
                 }
             }
 
-            return T3D._fixHitbox(e);
+            return KE._fixHitbox(e);
         }
     }
 
     patchQuickAdd() {
         windows[3]._gen = windows[3].gen;
         windows[3].gen = function() {
-            if (!windows[3].originalButtons) windows[3].originalButtons = [...T3D.settings.quickAddButtons];
-            else T3D.settings.quickAddButtons = [...windows[3].originalButtons];
+            if (!windows[3].originalButtons) windows[3].originalButtons = [...KE.settings.quickAddButtons];
+            else KE.settings.quickAddButtons = [...windows[3].originalButtons];
 
             return windows[3]._gen().replace('</div>',
                 `</div><input type='text' id='objSearch' class='smlInput' autofocus placeholder='Search' onkeyup='windows[3].search()' />`);
@@ -237,7 +206,7 @@ class Mod {
 
             if (window.event && window.event.keyCode == 13 && buttons.length) return windows[3].clickButton(0);
 
-            T3D.settings.quickAddButtons = buttons;
+            KE.settings.quickAddButtons = buttons;
             const html = windows[3]._gen();
 
             document.getElementsByClassName("buttonGrid")[0].innerHTML = html.substr(html.indexOf('buttonGrid') + 12, html.length - 6);
@@ -245,20 +214,20 @@ class Mod {
     }
 
     flipXZ(e = null) {
-        if (e = e || T3D.objectSelected()) {
+        if (e = e || KE.objectSelected()) {
             [e.scale.x, e.scale.z] = [e.scale.z, e.scale.x];
-            T3D.updateObjConfigGUI();
+            KE.updateObjConfigGUI();
         }
     }
 
     createNearObject(id) {
-        if (mod.hooks.assets.prefabs[id].name == "CUSTOM_ASSET") return T3D.viewAssets();
+        if (mod.hooks.assets.prefabs[id].name == "CUSTOM_ASSET") return KE.viewAssets();
 
-        let t = new T3D.THREE.Vector3(0, -5, -30);
-        t.applyQuaternion(T3D.camera.getWorldQuaternion());
-        let n = T3D.camera.getWorldPosition();
+        let t = new KE.THREE.Vector3(0, -5, -30);
+        t.applyQuaternion(KE.camera.getWorldQuaternion());
+        let n = KE.camera.getWorldPosition();
         n.add(t.multiplyScalar(1));
-        T3D.addObject(mod.hooks.objectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]));
+        KE.addObject(ObjectInstance.defaultFromType(id, [Math.round(n.x), Math.round(n.y), Math.round(n.z)]));
     }
 
     addShortcuts() {
@@ -324,13 +293,13 @@ class Mod {
             'f': _ => this.flipXZ(),
             'x': _ => window.showWindow(4),
             // shift:
-            'B': _ => T3D.toggleProp("ambient"),
+            'B': _ => KE.toggleProp("ambient"),
         };
 
         window.onkeydown = e => {
             if (e.key === 'Escape') return window.closeWindow();
 
-            if (!T3D.isTyping(e) && T3D.enabled) {
+            if (!KE.isTyping(e) && KE.enabled) {
                 const fn = actions[e.keyCode] || actions[e.key];
                 if (!e.ctrlKey && fn) {
                     fn();
@@ -343,82 +312,71 @@ class Mod {
     }
 }
 
-console.log("Patching script...");
-const observer = new MutationObserver(mutations => {
-    mutations.forEach(({ addedNodes }) => {
-        addedNodes.forEach(node => {
-            if (node.nodeType === 1 && node.tagName === 'SCRIPT' && !node.src && (node.textContent.includes("Yendis") || node.type == "text/javascript")) {
-                observer.disconnect();
-                node.type = 'javascript/blocked';
-                const beforeScriptExecuteListener = e => {
-                    if (node.getAttribute('type') === 'javascript/blocked') event.preventDefault();
-                    node.removeEventListener('beforescriptexecute', beforeScriptExecuteListener);
-                }
-                node.addEventListener('beforescriptexecute', beforeScriptExecuteListener);
+let observer, listener;
 
-                if (node.textContent) {
-                    patchScript(node.textContent);
-                } else {
-                    const timer = setInterval(x => {
-                        if (node.textContent) {
-                            clearInterval(timer);
-                            patchScript(node.textContent);
-                        }
-                    }, 100);
-                }
-                return;
-            }
-        });
-    });
-});
+function patch(elem) {
+    document.body.removeEventListener('beforescriptexecute', listener);
+    observer.disconnect();
+    elem.textContent = replaceCode(elem.textContent);
+    replaceFavicon();
+    console.log('Editor+ loaded')
+}
 
-setTimeout(() => {
-    if ((!unsafeWindow.code || !unsafeWindow.mod || !unsafeWindow.mod.hooks.assets) && confirm("Editor+ couldn't patch the script, please reload the page")) location.reload();
-}, 10000);
-
-observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-});
-
-function patchScript(code) {
-    String.prototype.patch = function(searchValue, newValue) {
-        if (this.indexOf(searchValue) < 0 && this.search(searchValue) < 0) {
-            console.warn("Couldn't find in code:", searchValue);
-            return this;
+observer = new MutationObserver(mutations => {
+    for (const { addedNodes } of mutations) {
+        for (const node of addedNodes) {
+            if (node.textContent && node.textContent.includes('KE=')) return patch(node);
         }
-        return this.replace(searchValue, newValue);
     }
+});
 
-    code = code.patch(/((\w+)\.getLineMaterial=)/, 'mod.hooks.objectInstance=$2;$1')
-        .patch(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
-        .patch(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
-        .patch(/(T3D=new Editor.*?\))/, '$1;mod.onEditorInit()')
-        .patch(/(\w\.[ps]=\w\.[ps]\.map\((\w)=>)Math\.round\(\w\)/g, '$1$2.round(3)') // round pos/size to 0.001 on serialization
-        .patch(/(\w\.r=\w\.map\((\w)=>e.round\()2\)/, '$14)') // round rotation to 0.0001 on serialization
-        .patch('if(this.prefab.dontRound){', 'if(true){') // always dontRound
-        .patch(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
-        .patch(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
-        .patch(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
-        .patch(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
-        .patch(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
-        .patch(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
-        .patch(/("editCustomKey".*?map.*?(\w+).*?value:)\w+/, '$1$2') // fix group editing
-        .patch('edssive', 'editEmissive')
+listener = e => {
+    if (e.target && e.target.textContent.includes('KE=')) patch(e.target);
+};
 
-    String.prototype.patch = undefined;
+observer.observe(document.body, { childList: true, subtree: true });
+document.body.addEventListener('beforescriptexecute', listener);
 
-    code = `${Mod.toString()}\nmod = new Mod('${GM.info.script.version}');${code}`;
-
-    unsafeWindow.code = code;
-    window.eval(code);
-
-    document.title += "+";
+function replaceFavicon() {
+    document.title += '+';
     const favicon = document.querySelector('link[rel~="icon"]');
     const clone = favicon.cloneNode(true);
-    clone.href = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMAUExURQAAACgoKD09PTJgdQ1ugRCNo02Qr2mUvXmTy/8AAKmys9Hc3////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM3i5YIAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7CAAAOwgEVKEqAAAAAVklEQVQoU4XM0Q6AIAxDUVcdA7b//92KxBAiUe/jSdqN3HtklBLkK0SrQcSActeAzDmtME1Is5TMxukDABHrXStgAhG0OtR6HLV+gbuqu4jqHywTADgBgTMo+Z94RQQAAAAASUVORK5CYII=';
-    favicon.parentNode.removeChild(favicon);
+    clone.href =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAABpUExURQAAAF1CMx4cFRkRDRMNChwXEql4XcKmij09PSgoKP///94l/+Za/+EA/7MA4LKsqhhid8wA/98w/9kA/9QA/8UA/9sA/94o/9/X1B57let+/+UA/94A/+JG/8gA/8UA8uE6/+lx/wAAANWhP1kAAAAjdFJOU/////////////////////////////////////////////8AZimDlgAAAAlwSFlzAAAOwAAADsABataJCQAAAHZJREFUKFN1zNsOgyAMgOGJQmsn84QOD5tb3/8hBSLEG/6LJnxpeTAXIb7Kgy8HzEKUpRBVlQcplZISIAGAUuAKgFjX/gFAz4YQ76BfEdq264io124kGEYzTfP4DmDtsqybA7N/Erjtr4knHqwlfcRPL/j9CfEE7lUQU0+xIVUAAAAASUVORK5CYII=';
     document.head.appendChild(clone);
+}
 
-    console.log("Done");
+class Patcher {
+    constructor(text) {
+        this.text = text;
+    }
+
+    replace(searchValue, newValue) {
+        if (typeof searchValue === 'string' && this.text.indexOf(searchValue) !== -1 || this.text.search(searchValue) !== -1) {
+            this.text = this.text.replace(searchValue, newValue);
+        } else {
+            console.warn('Couldn\'t find in code: ', searchValue);
+        }
+        return this;
+    }
+}
+
+function replaceCode(code) {
+    code = new Patcher(code)
+        .replace(/(ASSETS=.*?)(function)/, '$1mod.hooks.assets=ASSETS;mod.hooks.utils=UTILS;$2')
+        .replace(/(window\.GUI=).*?removePrivKeys\((\w+)\)/g, '$1$2')
+        .replace(/(KE=new Editor.*?\))/, '$1;mod.onEditorInit()')
+        .replace(/(\w\.[ps]=\w\.[ps]\.map\((\w)=>)Math\.round\(\w\)/g, '$1$2.round(3)') // round pos/size to 0.001 on serialization
+        .replace(/(\w\.r=\w\.map\((\w)=>e.round\()2\)/, '$14)') // round rotation to 0.0001 on serialization
+        .replace('if(this.prefab.dontRound){', 'if(true){') // always dontRound
+        .replace(/(this\.texOff.)\.round\(1\)/g, '$1') // remove texture offset rounding
+        .replace(/(key:"texOff[XY]",.*?)\.1/g, '$1.01') // texture offset precision
+        .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
+        .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
+        .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
+        .replace(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
+        .replace(/("editCustomKey".*?map.*?(\w+).*?value:)\w+/, '$1$2') // fix group editing
+        .text;
+
+    return `${Mod.toString()}\nmod = new Mod('${GM.info.script.version}');${code}`;
 }

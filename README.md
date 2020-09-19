@@ -15,7 +15,7 @@
 ### 1. Chrome/Brave: install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo), Firefox: install [Tampermonkey](https://addons.mozilla.org/en/firefox/addon/tampermonkey/)
 
 ### 2. [CLICK HERE](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js) to install the script
-### 3. Open the [editor]([https://krunker.io/editor.html](https://krunker.io/editor.html))
+### 3. Open the [editor](https://krunker.io/editor.html](https://krunker.io/editor.html)
 
 ## Not working?
 Reload the editor page until it works, otherwise dm me on discord.
