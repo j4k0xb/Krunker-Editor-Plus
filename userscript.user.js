@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      2.2
+// @version      2.3
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -315,7 +315,7 @@ class Mod {
 let observer, listener;
 
 function patch(elem) {
-    document.body.removeEventListener('beforescriptexecute', listener);
+    document.removeEventListener('beforescriptexecute', listener);
     observer.disconnect();
     elem.textContent = replaceCode(elem.textContent);
     replaceFavicon();
@@ -334,8 +334,8 @@ listener = e => {
     if (e.target && e.target.textContent.includes('KE=')) patch(e.target);
 };
 
-observer.observe(document.body, { childList: true, subtree: true });
-document.body.addEventListener('beforescriptexecute', listener);
+observer.observe(document, { childList: true, subtree: true });
+document.addEventListener('beforescriptexecute', listener);
 
 function replaceFavicon() {
     document.title += '+';
