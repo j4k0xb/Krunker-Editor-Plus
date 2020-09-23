@@ -1,5 +1,10 @@
 # Krunker Editor+
 
+## How to Install
+### 1. Install [Tampermonkey](http://www.tampermonkey.net) for your browser
+### 2. Add the [script](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js)
+### 3. Open the [editor](https://krunker.io/editor.html)
+
 ## Features
 - Quicksearch gui (press x)
 - Shows the real hitbox of rotated collidable objects and ladders
@@ -9,15 +14,6 @@
 - Keybinds for creating and modifying objects (See the *Help* button in the editor)
 - Always patches the most recent Krunker Editor when you open it
 - Auto-updates for this script
-
-## How to Install
-### 1. Chrome/Brave: install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo), Firefox: install [Tampermonkey](https://addons.mozilla.org/en/firefox/addon/tampermonkey/)
-
-### 2. [CLICK HERE](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js) to install the script
-### 3. Open the [editor](https://krunker.io/editor.html)
-
-## Not working?
-Reload the editor page until it works, otherwise dm me on discord.
 
 ## Old features/fixes which have been implement in the original editor
 - `100%` group rotation fix

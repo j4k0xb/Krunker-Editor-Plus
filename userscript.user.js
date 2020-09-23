@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Krunker Editor+
-// @version      2.3
+// @version      2.4
 // @description  Custom features for the Krunker Map Editor
 // @updateURL    https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
 // @downloadURL  https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js
@@ -374,8 +374,7 @@ function replaceCode(code) {
         .replace(/(0\!\=this\.rot\[0\]\|\|0\!\=this\.rot\[1\]\|\|0\!\=this\.rot\[2\])/, 'mod.hasRotation(this.rot) || this.objType == "LADDER"') // rotation rounding, show ladder hitbox
         .replace(/(if\(this\.realHitbox)/, 'if(this.objType=="LADDER") { this.realHitbox.position.y -= this.realHitbox.scale.y;this.realHitbox.scale.y *= 2}$1') // recalculate ladder hitbox
         .replace(/(hitBoxMaterial=new .*?)16711680/, '$1 0x4c2ac7') // hitbox colour
-        .replace(/(if\(this\.faceSelection.*?)\}/, '$1; this.updateObjConfigGUI(); }') // update gui at face selection click
-        .replace(/("editCustomKey".*?map.*?(\w+).*?value:)\w+/, '$1$2') // fix group editing
+        .replace(/(this\.mSize=(\w)\.ms)/, 'this.itemID=$2.skin||0,$1') // showcase object deserializing
         .text;
 
     return `${Mod.toString()}\nmod = new Mod('${GM.info.script.version}');${code}`;
