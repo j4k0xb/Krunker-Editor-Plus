@@ -6,6 +6,7 @@
 ### 3. Open the [editor](https://krunker.io/editor.html)
 
 ## Features
+- Realtime collaborative editing
 - Quicksearch gui (press x)
 - Shows the real hitbox of rotated collidable objects and ladders
 - Shows rotation in degrees instead of radians
