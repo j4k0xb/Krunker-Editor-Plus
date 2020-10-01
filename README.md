@@ -7,17 +7,17 @@
 
 ## Features
 - Realtime collaborative editing
-- Quicksearch gui (press x)
-- Shows the real hitbox of rotated collidable objects and ladders
 - Shows rotation in degrees instead of radians
-- ALT+click to select objects behind invisible ones or inside groups
-- Custom position/rotation/scale snapping with an accuracy of up to 0.001: *Advanced tab→Snapping*
 - Keybinds for creating and modifying objects (See the *Help* button in the editor)
 - Always patches the most recent Krunker Editor when you open it
 - Auto-updates for this script
 
 ## Old features/fixes which have been implement in the original editor
-- `100%` group rotation fix
-- `100%` *Copy Map* button
-- `100%` Toggling object properties via keybinds (collidable, visible)
-- `80%` Showing the real hitbox: *Edit→Settings→General→Game→Show Real Hitbox*
+- Search for the quick add gui
+- Shows the real hitbox of rotated collidable objects
+- ALT+click to select objects behind invisible ones or inside groups
+- higher decimal export precision
+- group rotation fix
+- *Copy Map* button
+- Toggling object properties via keybinds (collidable, visible)
+- Showing the real hitbox: *Edit→Settings→General→Game→Show Real Hitbox*
