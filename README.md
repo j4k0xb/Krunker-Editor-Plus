@@ -13,11 +13,11 @@
 - Auto-updates for this script
 
 ## Old features/fixes which have been implement in the original editor
-- Search for the quick add gui
-- Shows the real hitbox of rotated collidable objects
-- ALT+click to select objects behind invisible ones or inside groups
-- higher decimal export precision
+- Dark theme
+- Search bar in the quick add gui
+- Showing the real hitbox of rotated collidable objects
+- alt+click to select objects behind invisible ones or inside groups
+- higher decimal export precision (position, size)
 - group rotation fix
+- Keybinds: toggle collidable, toggle visible, flip x/z
 - *Copy Map* button
-- Toggling object properties via keybinds (collidable, visible)
-- Showing the real hitbox: *Edit→Settings→General→Game→Show Real Hitbox*
