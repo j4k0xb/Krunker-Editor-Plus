@@ -8,9 +8,9 @@
 ## Features
 - Realtime collaborative editing
 - Shows rotation in degrees instead of radians
-- Keybinds for creating and modifying objects (See the *Help* button in the editor)
+- Keybinds for creating and modifying objects (listed in the *Help* menu)
 - Always patches the most recent Krunker Editor when you open it
-- Auto-updates for this script
+- Auto-updates (Tampermonkey checks 1x per day, you can also manually re-install the script)
 
 ## Old features/fixes which have been implement in the original editor
 - Dark theme
@@ -21,3 +21,6 @@
 - group rotation fix
 - Keybinds: toggle collidable, toggle visible, flip x/z
 - *Copy Map* button
+
+## Screenshots
+![Screenshot](https://i.imgur.com/q8SGDdl.png)
