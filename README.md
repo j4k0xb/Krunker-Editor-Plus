@@ -9,10 +9,10 @@
 - Realtime collaborative editing
 - Shows rotation in degrees instead of radians
 - Keybinds for creating and modifying objects (listed in the *Help* menu)
-- Always patches the most recent Krunker Editor when you open it
+- Patches the most recent Krunker Editor when you open it
 - Auto-updates (Tampermonkey checks 1x per day, you can also manually re-install the script)
 
-## Old features/fixes which have been implement in the original editor
+## Old features/fixes which have been implemented in the original editor
 - Dark theme
 - Search bar in the quick add gui
 - Showing the real hitbox of rotated collidable objects
