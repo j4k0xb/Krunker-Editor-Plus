@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Krunker Editor+
-// @version     4.1.2
+// @version     4.1.3
 // @author      Jakob#8686
 // @description Custom features for the Krunker Map Editor
 // @include     /^(https?://)?(www.)?(.+)krunker.io/editor.html/
