@@ -2,11 +2,12 @@
 
 ## 💾 Installation
 1. Install [Tampermonkey](http://www.tampermonkey.net) for your browser
-2. Add the [script](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js)
+2. Add the [Script](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js)
+3. Open the [Editor](https://krunker.io/editor.html)
 
 ## 🔄 Updating
 Tampermonkey checks for updates 1x per day, you can also manually update:
-![manual update](https://i.imgur.com/MQ2b5Y0.png)
+![manual update](https://i.imgur.com/VRwILtb.png)
 
 ## 🎮 Features 
 - Realtime collaborative editing
