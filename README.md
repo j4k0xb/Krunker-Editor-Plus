@@ -12,7 +12,9 @@ Tampermonkey checks for updates 1x per day, you can also manually update:
 ## 🎮 Features 
 - Realtime collaborative editing
 - Scale with a precision up to 0.01
-- Shows rotation in degrees instead of radians
+- Evaluate math expressions in position/rotation/scale fields
+- Input/Show rotation in degrees instead of radians
+- Teleport to location (x,y,z)
 - Keybinds for creating and modifying objects (listed in the *Help* menu)
 - Patches the most recent Krunker Editor when you open it
 - Auto-updates
