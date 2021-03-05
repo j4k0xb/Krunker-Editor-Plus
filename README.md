@@ -7,22 +7,21 @@
 
 ## 🎮 Features 
 - Realtime collaborative editing
-- Local database map backups
-- Scale with a precision up to 0.01
-- Evaluate math expressions in position/rotation/scale fields
 - Input/Show rotation in degrees instead of radians
+- Evaluate math expressions in position/rotation/scale fields
 - Keybinds for creating and modifying objects (listed in the *Help* menu)
 - Patches the most recent Krunker Editor when you open it
 - Auto update checks
 
 ## ⏪ Old features/fixes which have been implemented in the original editor
-- Dark theme
-- Search bar in the quick add gui
 - Showing the real hitbox of rotated collidable objects
-- alt+click to select objects behind invisible ones or inside groups
-- Higher decimal export precision (position)
+- Higher decimal export precision (position, scale)
+- Local database map backups
+- Dark theme
 - Group rotation fix
-- Keybinds: toggle collidable, toggle visible, flip x/z
+- Search bar in the quick add gui
+- alt+click to select objects behind invisible ones or inside groups
+- Keybinds: toggle collidable, toggle visible, flip x/z, quick add
 - FPS display
 - Render distance
 - Teleport to location
