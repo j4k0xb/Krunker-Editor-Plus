@@ -3,7 +3,7 @@
 // @version     4.13.0
 // @author      Jakob#8686
 // @description Custom features for the Krunker Map Editor
-// @include     /^(https?://)?(www.)?(.+)krunker.io/editor.html/
+// @match       *://*.krunker.io/editor.html*
 // @run-at      document-start
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -28,20 +28,17 @@ async function patch(elem) {
 async function loadBundle() {
   const lastModified = GM_getValue('lastModified') || 0;
   const now = Date.now();
-  let bundle;
 
   if (now - lastModified > 30 * 60e3) {
     try {
-      const response = await fetch(bundleURL, { cache: 'no-store' });
-      if (response.ok) {
-        bundle = await response.text();
-        GM_setValue('bundle', bundle);
-        GM_setValue('lastModified', now);
-      }
+      const bundle = await (await fetch(bundleURL, { cache: 'no-store' })).text();
+      GM_setValue('bundle', bundle);
+      GM_setValue('lastModified', now);
+      return bundle;
     } catch (error) { }
   }
 
-  return bundle || GM_getValue('bundle');
+  return GM_getValue('bundle');
 }
 
 const observer = new MutationObserver(mutations => {
@@ -53,6 +50,6 @@ const observer = new MutationObserver(mutations => {
 });
 
 observer.observe(document, { childList: true, subtree: true });
-document.addEventListener('beforescriptexecute', ({ target }) =>
-  target.textContent?.includes('KE=') && patch(target)
-);
+document.addEventListener('beforescriptexecute', ({ target }) => {
+  if (target.textContent?.includes('KE=')) patch(target)
+});
