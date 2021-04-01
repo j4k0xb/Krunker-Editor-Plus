@@ -13,8 +13,6 @@
 // @updateURL   https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.meta.js
 // ==/UserScript==
 
-const bundleURL = 'https://raw.githubusercontent.com/j4k0xb/Krunker-Editor-Plus/master/bundle.js';
-
 async function patch(elem) {
   observer.disconnect();
   const src = elem.textContent;
@@ -26,19 +24,25 @@ async function patch(elem) {
 }
 
 async function loadBundle() {
+  const commitURL = 'https://api.github.com/repos/j4k0xb/Krunker-Editor-Plus/commits?per_page=1';
   const lastModified = GM_getValue('lastModified') || 0;
-  const now = Date.now();
 
-  if (now - lastModified > 30 * 60e3) {
-    try {
-      const bundle = await (await fetch(bundleURL, { cache: 'no-store' })).text();
-      GM_setValue('bundle', bundle);
-      GM_setValue('lastModified', now);
-      return bundle;
-    } catch (error) { }
-  }
+  const commit = (await (await fetch(commitURL, { cache: 'no-store' })).json())[0].commit;
+  const commitDate = Date.parse(commit.committer.date);
+
+  if (commitDate != lastModified) return updateBundle(commitDate);
 
   return GM_getValue('bundle');
+}
+
+async function updateBundle(date) {
+  const bundleURL = 'https://raw.githubusercontent.com/j4k0xb/Krunker-Editor-Plus/master/bundle.js';
+  const bundle = await (await fetch(bundleURL, { cache: 'no-store' })).text();
+
+  GM_setValue('bundle', bundle);
+  GM_setValue('lastModified', date);
+
+  return bundle;
 }
 
 const observer = new MutationObserver(mutations => {
