@@ -55,5 +55,5 @@ const observer = new MutationObserver(mutations => {
 
 observer.observe(document, { childList: true, subtree: true });
 document.addEventListener('beforescriptexecute', ({ target }) => {
-  if (target.textContent && node.textContent.includes('KE=')) patch(target)
+  if (target.textContent && target.textContent.includes('KE=')) patch(target)
 });
