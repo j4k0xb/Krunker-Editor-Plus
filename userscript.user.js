@@ -48,12 +48,12 @@ async function updateBundle(date) {
 const observer = new MutationObserver(mutations => {
   for (const { addedNodes } of mutations) {
     for (const node of addedNodes) {
-      if (node.textContent && node.textContent.includes('KE=')) return patch(node);
+      if (node.textContent && node.textContent.includes('Krunker.io')) return patch(node);
     }
   }
 });
 
 observer.observe(document, { childList: true, subtree: true });
 document.addEventListener('beforescriptexecute', ({ target }) => {
-  if (target.textContent && target.textContent.includes('KE=')) patch(target)
+  if (target.textContent && target.textContent.includes('Krunker.io')) patch(target)
 });
