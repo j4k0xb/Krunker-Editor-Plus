@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Krunker Editor+
-// @version     4.13.1
+// @version     4.13.2
 // @author      Jakob#8686
 // @description Custom features for the Krunker Map Editor
 // @match       *://*.krunker.io/editor.html*
@@ -13,30 +13,52 @@
 // @updateURL   https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.meta.js
 // ==/UserScript==
 
-async function patch(elem) {
-  observer.disconnect();
-  const src = elem.textContent;
-  elem.textContent = '';
+const bundle = loadBundle();
+let script;
 
-  /* eslint-disable */
-  eval(await loadBundle());
-  dispatchEvent(new CustomEvent('editor-plus-init', { detail: src }));
-}
+document.addEventListener('DOMContentLoaded', async () => {
+  eval(await bundle); // eslint-disable-line
+  dispatchEvent(
+    new CustomEvent('editor-plus-init', { detail: script.textContent })
+  );
+});
+
+const observer = new MutationObserver(mutations => {
+  for (const { addedNodes } of mutations) {
+    for (const node of addedNodes) {
+      if (
+        node.textContent &&
+        node.textContent.includes('Krunker.io') &&
+        node.nodeType === Node.TEXT_NODE
+      ) {
+        observer.disconnect();
+        script = node.parentElement;
+        script.type = 'text/blocked';
+      }
+    }
+  }
+});
+
+observer.observe(document, { childList: true, subtree: true });
 
 async function loadBundle() {
-  const commitURL = 'https://api.github.com/repos/j4k0xb/Krunker-Editor-Plus/commits?per_page=1';
+  const commitURL =
+    'https://api.github.com/repos/j4k0xb/Krunker-Editor-Plus/commits?per_page=1';
   const lastModified = GM_getValue('lastModified') || 0;
 
-  const commit = (await (await fetch(commitURL, { cache: 'no-store' })).json())[0].commit;
+  const commit = (
+    await (await fetch(commitURL, { cache: 'no-store' })).json()
+  )[0].commit;
   const commitDate = Date.parse(commit.committer.date);
 
-  if (commitDate != lastModified) return updateBundle(commitDate);
+  if (commitDate !== lastModified) return updateBundle(commitDate);
 
   return GM_getValue('bundle');
 }
 
 async function updateBundle(date) {
-  const bundleURL = 'https://raw.githubusercontent.com/j4k0xb/Krunker-Editor-Plus/master/bundle.js';
+  const bundleURL =
+    'https://raw.githubusercontent.com/j4k0xb/Krunker-Editor-Plus/master/bundle.js';
   const bundle = await (await fetch(bundleURL, { cache: 'no-store' })).text();
 
   GM_setValue('bundle', bundle);
@@ -44,16 +66,3 @@ async function updateBundle(date) {
 
   return bundle;
 }
-
-const observer = new MutationObserver(mutations => {
-  for (const { addedNodes } of mutations) {
-    for (const node of addedNodes) {
-      if (node.textContent && node.textContent.includes('Krunker.io')) return patch(node);
-    }
-  }
-});
-
-observer.observe(document, { childList: true, subtree: true });
-document.addEventListener('beforescriptexecute', ({ target }) => {
-  if (target.textContent && target.textContent.includes('Krunker.io')) patch(target)
-});
