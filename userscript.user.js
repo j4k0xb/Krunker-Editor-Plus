@@ -27,9 +27,8 @@ const observer = new MutationObserver(mutations => {
   for (const { addedNodes } of mutations) {
     for (const node of addedNodes) {
       if (
-        node.textContent &&
-        node.textContent.includes('Krunker.io') &&
-        node.nodeType === Node.TEXT_NODE
+        node.nodeType === Node.TEXT_NODE &&
+        node.textContent.includes('Krunker.io')
       ) {
         observer.disconnect();
         script = node.parentElement;
