@@ -1,19 +1,23 @@
 # Krunker Editor+
 
 ## 💾 Installation
-1. Install [Tampermonkey](http://www.tampermonkey.net) for your browser
-2. Add the [Script](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js)
-3. Open the [Editor](https://krunker.io/editor.html)
 
-## 🎮 Features 
+1. Install [Tampermonkey](http://www.tampermonkey.net)
+2. For Chromium based browsers: [Enable Developer Mode](https://www.tampermonkey.net/faq.php?locale=en#Q209)
+3. Add the [Script](https://github.com/j4k0xb/Krunker-Editor-Plus/raw/master/userscript.user.js)
+4. Open the [Editor](https://krunker.io/editor.html)
+
+## 🎮 Features
+
 - Realtime collaborative editing
 - Input/Show rotation in degrees instead of radians
 - Evaluate math expressions in position/rotation/scale fields
-- Keybinds for creating and modifying objects (listed in the *Help* menu)
+- Keybinds for creating and modifying objects (listed in the _Help_ menu)
 - Patches the most recent Krunker Editor when you open it
 - Auto update checks
 
 ## ⏪ Old features/fixes which have been implemented in the original editor
+
 - Showing the real hitbox of rotated collidable objects
 - Higher decimal export precision (position, scale)
 - Local database map backups
@@ -25,7 +29,8 @@
 - FPS display
 - Render distance
 - Teleport to location
-- *Copy Map* button
+- _Copy Map_ button
 
 ## 📷 Screenshots
+
 ![editor screenshot](https://i.imgur.com/okuceJH.png)
