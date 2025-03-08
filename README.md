@@ -1,5 +1,9 @@
 # Krunker Editor+
 
+> [!NOTE]
+> Broken as of 2025-02-17 due to significant changes in the Krunker editor codebase.
+> Editor+ is unlikely to be fixed or maintained in the future.
+
 ## 💾 Installation
 
 1. Install [Tampermonkey](http://www.tampermonkey.net)
